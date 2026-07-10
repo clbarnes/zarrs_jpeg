@@ -1,0 +1,244 @@
+use std::{
+    num::{NonZeroU16, NonZeroU64},
+    sync::Arc,
+};
+
+use serde::{Deserialize, Serialize};
+use zarrs::array::{
+    ArrayBytes, ArrayBytesRaw, ArrayCodecTraits, ArrayToBytesCodecTraits, BytesRepresentation,
+    Codec, CodecError, CodecOptions, CodecTraits, CodecTraitsV3, DataType, FillValue,
+    IncompatibleDimensionalityError,
+    codec::api::{
+        CodecPluginV3, ExpectedFixedLengthBytesError, InvalidArrayShapeError,
+        PartialDecoderCapability, PartialEncoderCapability,
+    },
+};
+use zune_jpeg::zune_core::bytestream::ZCursor;
+
+zarrs::plugin::impl_extension_aliases!(JpegCodec, v3: "jpeg", ["zarrs.jpeg"]);
+inventory::submit! {CodecPluginV3::new::<JpegCodec>()}
+
+#[derive(Debug, Clone, Copy)]
+pub struct JpegCodec {
+    pub quality: u8,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
+pub struct JpegCodecConfiguration {
+    pub quality: u8,
+}
+
+impl From<JpegCodecConfiguration> for JpegCodec {
+    fn from(config: JpegCodecConfiguration) -> Self {
+        Self {
+            quality: config.quality,
+        }
+    }
+}
+
+impl From<JpegCodec> for JpegCodecConfiguration {
+    fn from(codec: JpegCodec) -> Self {
+        Self {
+            quality: codec.quality,
+        }
+    }
+}
+
+impl CodecTraitsV3 for JpegCodec {
+    fn create(
+        metadata: &zarrs::metadata::v3::MetadataV3,
+    ) -> Result<zarrs::array::Codec, zarrs::plugin::PluginCreateError>
+    where
+        Self: Sized,
+    {
+        let configuration: JpegCodecConfiguration = metadata.to_typed_configuration()?;
+        let codec = Arc::new(JpegCodec::from(configuration));
+        Ok(Codec::ArrayToBytes(codec))
+    }
+}
+
+impl CodecTraits for JpegCodec {
+    fn as_any(&self) -> &dyn std::any::Any {
+        todo!()
+    }
+
+    fn configuration(
+        &self,
+        version: zarrs::plugin::ZarrVersion,
+        _options: &zarrs::array::CodecMetadataOptions,
+    ) -> Option<zarrs::metadata::Configuration> {
+        if version != zarrs::plugin::ZarrVersion::V3 {
+            return None;
+        }
+        let config = JpegCodecConfiguration::from(*self);
+        let val =
+            serde_json::to_value(config).expect("jpeg codec configuration should be serializable");
+        let serde_json::Value::Object(map) = val else {
+            panic!("jpeg codec configuration should serialize to a JSON object");
+        };
+        Some(map.into())
+    }
+
+    fn partial_decoder_capability(&self) -> zarrs::array::codec::api::PartialDecoderCapability {
+        PartialDecoderCapability {
+            partial_decode: false,
+            partial_read: false,
+        }
+    }
+
+    fn partial_encoder_capability(&self) -> zarrs::array::codec::api::PartialEncoderCapability {
+        PartialEncoderCapability {
+            partial_encode: false,
+        }
+    }
+}
+
+impl ArrayCodecTraits for JpegCodec {
+    fn recommended_concurrency(
+        &self,
+        _shape: &[std::num::NonZeroU64],
+        _data_type: &zarrs::array::DataType,
+    ) -> Result<zarrs::array::RecommendedConcurrency, zarrs::array::CodecError> {
+        Ok(zarrs::array::RecommendedConcurrency::new_minimum(1))
+    }
+}
+
+impl ArrayToBytesCodecTraits for JpegCodec {
+    /// Return a dynamic version of the codec.
+    fn into_dyn(self: Arc<Self>) -> Arc<dyn ArrayToBytesCodecTraits> {
+        self
+    }
+
+    /// Returns the size of the encoded representation given a size of the decoded representation.
+    ///
+    /// # Errors
+    /// Returns a [`CodecError`] if the decoded representation is not supported by this codec.
+    fn encoded_representation(
+        &self,
+        shape: &[NonZeroU64],
+        data_type: &DataType,
+        _fill_value: &FillValue,
+    ) -> Result<BytesRepresentation, CodecError> {
+        check_dtype(data_type)?;
+        JpegShape::try_from(shape)?;
+        let sz: u64 = shape.iter().map(|s| s.get()).product();
+
+        // Smallest valid JPEG plus number of pixels.
+        // Strictly, JPEGs can be any size because you can pack arbitrary app data into them.
+        // https://web.archive.org/web/20111224041840/http://www.techsupportteam.org/forum/digital-imaging-photography/1892-worlds-smallest-valid-jpeg.html
+        Ok(BytesRepresentation::BoundedSize(134 + sz))
+    }
+
+    /// Encode a chunk.
+    ///
+    /// # Errors
+    /// Returns [`CodecError`] if a codec fails or `bytes` is incompatible with the decoded representation.
+    fn encode<'a>(
+        &self,
+        bytes: ArrayBytes<'a>,
+        shape: &[NonZeroU64],
+        data_type: &DataType,
+        _fill_value: &FillValue,
+        _options: &CodecOptions,
+    ) -> Result<ArrayBytesRaw<'a>, CodecError> {
+        check_dtype(data_type)?;
+        let im_shape = JpegShape::try_from(shape)?;
+        let b = get_bytes(&bytes)?;
+        let mut w = vec![];
+        let mut enc = jpeg_encoder::Encoder::new(&mut w, self.quality);
+        enc.set_optimized_huffman_tables(true);
+        enc.encode(
+            b,
+            im_shape.width.get(),
+            im_shape.height.get(),
+            if im_shape.is_rgb {
+                jpeg_encoder::ColorType::Rgb
+            } else {
+                jpeg_encoder::ColorType::Luma
+            },
+        )
+        .map_err(|e| CodecError::Other(format!("{e}")))?;
+        Ok(ArrayBytesRaw::Owned(w))
+    }
+
+    /// Decode a chunk.
+    ///
+    /// # Errors
+    /// Returns [`CodecError`] if a codec fails or the decoded output is incompatible with the decoded representation.
+    fn decode<'a>(
+        &self,
+        bytes: ArrayBytesRaw<'a>,
+        shape: &[NonZeroU64],
+        data_type: &DataType,
+        _fill_value: &FillValue,
+        _options: &CodecOptions,
+    ) -> Result<ArrayBytes<'a>, CodecError> {
+        check_dtype(data_type)?;
+        JpegShape::try_from(shape)?;
+        let data = bytes.as_ref();
+        let curs = ZCursor::new(data);
+        let mut decoder = zune_jpeg::JpegDecoder::new(curs);
+        let pixels = decoder
+            .decode()
+            .map_err(|e| CodecError::Other(format!("{e}")))?;
+        Ok(ArrayBytes::new_flen(pixels))
+    }
+}
+
+struct JpegShape {
+    width: NonZeroU16,
+    height: NonZeroU16,
+    is_rgb: bool,
+}
+
+impl TryFrom<&[NonZeroU64]> for JpegShape {
+    type Error = CodecError;
+
+    fn try_from(shape: &[NonZeroU64]) -> Result<Self, Self::Error> {
+        let (is_rgb, w, h) = match shape.len() {
+            2 => (false, shape[0], shape[1]),
+            3 => match shape[2].get() {
+                1 => (false, shape[0], shape[1]),
+                3 => (true, shape[0], shape[1]),
+                _ => {
+                    return Err(InvalidArrayShapeError::new(
+                        shape.iter().map(|n| n.get()).collect(),
+                        3,
+                    )
+                    .into());
+                }
+            },
+            n => {
+                return Err(IncompatibleDimensionalityError::new(n, 3).into());
+            }
+        };
+        let width: u16 = w.get().try_into().map_err(|_| {
+            InvalidArrayShapeError::new(shape.iter().map(|n| n.get()).collect(), u16::MAX as usize)
+        })?;
+        let height: u16 = h.get().try_into().map_err(|_| {
+            InvalidArrayShapeError::new(shape.iter().map(|n| n.get()).collect(), u16::MAX as usize)
+        })?;
+        Ok(Self {
+            width: NonZeroU16::new(width).unwrap(),
+            height: NonZeroU16::new(height).unwrap(),
+            is_rgb,
+        })
+    }
+}
+
+fn get_bytes<'a>(array_bytes: &'a ArrayBytes<'a>) -> Result<&'a [u8], CodecError> {
+    match array_bytes {
+        ArrayBytes::Fixed(bytes) => Ok(bytes.as_ref()),
+        _ => Err(ExpectedFixedLengthBytesError.into()),
+    }
+}
+
+fn check_dtype(data_type: &DataType) -> Result<(), CodecError> {
+    if data_type.name_v3().as_deref() != Some("uint8") {
+        return Err(CodecError::Other(format!(
+            "jpeg codec only supports uint8 data type, but got {:?}",
+            data_type
+        )));
+    }
+    Ok(())
+}
