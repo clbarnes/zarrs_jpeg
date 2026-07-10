@@ -1,4 +1,4 @@
-use std::{io::BufReader, path::PathBuf, sync::Arc};
+use std::{fs::{remove_dir_all, remove_file}, io::BufReader, path::PathBuf, sync::Arc};
 
 use png::OutputInfo;
 use zarrs_jpeg::JpegCodec;
@@ -40,6 +40,9 @@ fn read_astro() -> (OutputInfo, Vec<u8>) {
 /// Prove that we can write a JPEG outside of Zarr.
 fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
     let path = output_dir().join("astronaut.jpeg");
+    if path.is_file() {
+        remove_file(&path).unwrap();
+    }
     let f = std::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -57,57 +60,41 @@ fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
         .unwrap();
 }
 
-fn write_astro_zarr_raw(info: &OutputInfo, data: &[u8]) {
-    let path = output_dir().join("astronaut_raw.zarr");
+fn write_astro_zarr(info: &OutputInfo, data: &[u8], name: &str, slice_channels: bool, codec: Option<JpegCodec>) {
+    let path = output_dir().join(name);
+    if path.is_dir() {
+        remove_dir_all(&path).unwrap();
+    }
     let store: zarrs::storage::ReadableWritableListableStorage =
         Arc::new(zarrs::filesystem::FilesystemStore::new(&path).unwrap());
-    let array = zarrs::array::ArrayBuilder::new(
+    let c_chunking = if slice_channels { 1 } else { 3 };
+    let mut builder = zarrs::array::ArrayBuilder::new(
         vec![info.width as u64, info.height as u64, 3],
-        vec![info.width as u64 / 2, info.height as u64 / 2, 3],
+        vec![info.width as u64 / 2, info.height as u64 / 2, c_chunking],
         zarrs::array::data_type::uint8(),
         0,
-    )
-    .build(store.clone(), "/")
+    );
+    if let Some(c) = codec {
+        builder.array_to_bytes_codec(Arc::new(c));
+    }
+    let array = builder.build(store.clone(), "/")
     .unwrap();
     array
         .store_array_subset(&[0..512, 0..512, 0..3], data)
         .unwrap();
+    array.store_metadata().unwrap();
+}
+
+fn write_astro_zarr_raw(info: &OutputInfo, data: &[u8]) {
+    write_astro_zarr(info, data, "astronaut_raw.zarr", false, None);
 }
 
 fn write_astro_zarr_jpeg(info: &OutputInfo, data: &[u8]) {
-    let path = output_dir().join("astronaut_jpeg.zarr");
-    let store: zarrs::storage::ReadableWritableListableStorage =
-        Arc::new(zarrs::filesystem::FilesystemStore::new(&path).unwrap());
-    let array = zarrs::array::ArrayBuilder::new(
-        vec![info.width as u64, info.height as u64, 3],
-        vec![info.width as u64 / 2, info.height as u64 / 2, 3],
-        zarrs::array::data_type::uint8(),
-        0,
-    )
-    .array_to_bytes_codec(Arc::new(JpegCodec { quality: 90 }))
-    .build(store.clone(), "/")
-    .unwrap();
-    array
-        .store_array_subset(&[0..512, 0..512, 0..3], data)
-        .unwrap();
+    write_astro_zarr(info, data, "astronaut_jpeg.zarr", false, JpegCodec { quality: 90 }.into());
 }
 
 fn write_astro_zarr_jpeg_channels(info: &OutputInfo, data: &[u8]) {
-    let path = output_dir().join("astronaut_jpeg_channels.zarr");
-    let store: zarrs::storage::ReadableWritableListableStorage =
-        Arc::new(zarrs::filesystem::FilesystemStore::new(&path).unwrap());
-    let array = zarrs::array::ArrayBuilder::new(
-        vec![info.width as u64, info.height as u64, 3],
-        vec![info.width as u64 / 2, info.height as u64 / 2, 1],
-        zarrs::array::data_type::uint8(),
-        0,
-    )
-    .array_to_bytes_codec(Arc::new(JpegCodec { quality: 90 }))
-    .build(store.clone(), "/")
-    .unwrap();
-    array
-        .store_array_subset(&[0..512, 0..512, 0..3], data)
-        .unwrap();
+    write_astro_zarr(info, data, "astronaut_jpeg_channels.zarr", true, JpegCodec { quality: 90 }.into());
 }
 
 fn main() {
