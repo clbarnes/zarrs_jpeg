@@ -1,5 +1,7 @@
 # zarrs_jpeg
 
+> WARNING: The `jpeg` codec is a work in progress and liable to change; this should be used to write data in production.
+
 The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/pull/66) codec for [`zarrs`](https://zarrs.dev).
 
 ## Divergence from the spec
