@@ -22,7 +22,7 @@ Other than the `quality` setting, this crate uses
 
 ## Examples
 
-`cargo run --example astronaut` regenerates the data in `output/astronaut*`.
+`cargo run --example astronaut` regenerates the data in `data/output/`.
 
 This produces:
 
