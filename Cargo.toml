@@ -1,15 +1,20 @@
 [package]
 name = "zarrs_jpeg"
+authors = ["Chris Barnes <chrislloydbarnes@gmail.com>"]
+description = "jpeg codec for zarrs"
+repository = "https://github.com/clbarnes/zarrs_jpeg"
+license = "MIT"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.91"
+keywords = ["zarr", "jpeg", "image", "chunked"]
+categories = ["multimedia::images", "multimedia::encoding", "parser-implementations"]
 
 [dependencies]
 inventory = "0.3.24"
 jpeg-encoder = "0.7.0"
-log = "0.4.33"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-thiserror = "2.0.18"
 zarrs = { version = "0.23.13", default-features = false }
 zune-jpeg = "0.5.15"
 

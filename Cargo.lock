@@ -1358,11 +1358,9 @@ version = "0.1.0"
 dependencies = [
  "inventory",
  "jpeg-encoder",
- "log",
  "png",
  "serde",
  "serde_json",
- "thiserror",
  "zarrs",
  "zune-jpeg",
 ]
