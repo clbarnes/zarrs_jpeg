@@ -1,4 +1,9 @@
-use std::{fs::{remove_dir_all, remove_file}, io::BufReader, path::PathBuf, sync::Arc};
+use std::{
+    fs::{remove_dir_all, remove_file},
+    io::BufReader,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use png::OutputInfo;
 use zarrs_jpeg::JpegCodec;
@@ -60,7 +65,13 @@ fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
         .unwrap();
 }
 
-fn write_astro_zarr(info: &OutputInfo, data: &[u8], name: &str, slice_channels: bool, codec: Option<JpegCodec>) {
+fn write_astro_zarr(
+    info: &OutputInfo,
+    data: &[u8],
+    name: &str,
+    slice_channels: bool,
+    codec: Option<JpegCodec>,
+) {
     let path = output_dir().join(name);
     if path.is_dir() {
         remove_dir_all(&path).unwrap();
@@ -77,8 +88,7 @@ fn write_astro_zarr(info: &OutputInfo, data: &[u8], name: &str, slice_channels: 
     if let Some(c) = codec {
         builder.array_to_bytes_codec(Arc::new(c));
     }
-    let array = builder.build(store.clone(), "/")
-    .unwrap();
+    let array = builder.build(store.clone(), "/").unwrap();
     array
         .store_array_subset(&[0..512, 0..512, 0..3], data)
         .unwrap();
@@ -90,11 +100,23 @@ fn write_astro_zarr_raw(info: &OutputInfo, data: &[u8]) {
 }
 
 fn write_astro_zarr_jpeg(info: &OutputInfo, data: &[u8]) {
-    write_astro_zarr(info, data, "astronaut_jpeg.zarr", false, JpegCodec { quality: 90 }.into());
+    write_astro_zarr(
+        info,
+        data,
+        "astronaut_jpeg.zarr",
+        false,
+        JpegCodec { quality: 90 }.into(),
+    );
 }
 
 fn write_astro_zarr_jpeg_channels(info: &OutputInfo, data: &[u8]) {
-    write_astro_zarr(info, data, "astronaut_jpeg_channels.zarr", true, JpegCodec { quality: 90 }.into());
+    write_astro_zarr(
+        info,
+        data,
+        "astronaut_jpeg_channels.zarr",
+        true,
+        JpegCodec { quality: 90 }.into(),
+    );
 }
 
 fn main() {
