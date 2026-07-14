@@ -204,9 +204,14 @@ pub enum ColorSpace {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChromaSubsampling {
+    /// No subsampling, 1 chrominance sample per pixel.
     Cs4_4_4,
+    /// 2x1 (horizontal) chrominance subsampling; 1 chrominance sample for every 2x1 block of pixels.
     Cs4_2_2,
+    /// 2x2 (square) chrominance subsampling; 1 chrominance sample for every 2x2 block of pixels.
     Cs4_2_0,
+    /// 1x2 (vertical) chrominance subsampling; 1 chrominance sample for every 1x2 block of pixels.
+    /// May incur a performance cost.
     Cs4_4_0,
     // Cs4_4_1,
     // Cs4_1_1,
