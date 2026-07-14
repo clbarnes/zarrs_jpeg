@@ -4,21 +4,11 @@
 
 The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/pull/66) codec for [`zarrs`](https://zarrs.dev).
 
-## Divergence from the spec
+## Dependencies
 
-- Only accepts arrays which are 2D (as greyscale XY) or 3D (XYC, where 3 channels is interpreted as RGB and 1 channel is interpreted as greyscale)
-  - If you have some other dimensionality, use a different chunking, or use the [sharding](https://docs.rs/zarrs/latest/zarrs/array/codec/array_to_bytes/sharding/index.html) or [reshape](https://docs.rs/zarrs/latest/zarrs/array/codec/array_to_array/reshape/index.html) codecs
-
-## Limitations
-
-The JPEG spec is very flexible and different encoders/ decoders vary greatly in which features they implement and/or default to.
-
-Other than the `quality` setting, this crate uses
-
-- the default encoding settings from the [`jpeg-encoder`](https://crates.io/crates/jpeg-encoder) crate, notably
-  - assumes an RGB input where the shape suggests a multichannel image and converts to YCbCr
-  - no chroma subsampling where `quality>90`, and then switches to 2x2/ 4:2:0
-- the decoding features supported by the [`zune-jpeg`](https://crates.io/crates/zune-jpeg) crate
+This crate uses bindings to libjpeg-turbo, a C dependency.
+These are built and statically linked;
+you will need CMake, a C compiler, and NASM (or possibly YASM) to build this crate.
 
 ## Examples
 
