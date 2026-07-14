@@ -5,10 +5,10 @@ use turbojpeg::{Colorspace, Compressor, Image, PixelFormat, Subsamp};
 
 use crate::{
     Quality,
-    codec::{ChromaSubsampling, ColorConfig, JpegCodecConfiguration, JpegShape},
+    types::{ChromaSubsampling, ColorConfig, JpegCodecConfiguration, JpegShape},
 };
 
-/// Construct using [TryFrom<JpecCodecConfiguration>].
+/// Construct using [From<JpecCodecConfiguration>].
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TurboEncoder {
     quality: i32,
