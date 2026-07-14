@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::{DEFAULT_QUALITY, turbo::TurboCodec};
 use serde::{Deserialize, Serialize};
 use zarrs::array::{
     ArrayBytes, ArrayBytesRaw, ArrayCodecTraits, ArrayToBytesCodecTraits, BytesRepresentation,
@@ -13,34 +14,48 @@ use zarrs::array::{
         PartialDecoderCapability, PartialEncoderCapability,
     },
 };
-use zune_jpeg::zune_core::bytestream::ZCursor;
 
 zarrs::plugin::impl_extension_aliases!(JpegCodec, v3: "jpeg", ["zarrs.jpeg"]);
 inventory::submit! {CodecPluginV3::new::<JpegCodec>()}
 
-#[derive(Debug, Clone, Copy)]
-pub struct JpegCodec {
-    pub quality: u8,
-}
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct JpegCodec(TurboCodec);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
-pub struct JpegCodecConfiguration {
-    pub quality: u8,
-}
-
-impl From<JpegCodecConfiguration> for JpegCodec {
-    fn from(config: JpegCodecConfiguration) -> Self {
-        Self {
-            quality: config.quality,
-        }
+impl JpegCodec {
+    pub fn new(quality: Quality, color_config: ColorConfig) -> Self {
+        let codec = TurboCodec::from(JpegCodecConfiguration {
+            quality,
+            color_config,
+        });
+        Self(codec)
     }
 }
 
-impl From<JpegCodec> for JpegCodecConfiguration {
-    fn from(codec: JpegCodec) -> Self {
-        Self {
-            quality: codec.quality,
-        }
+/// Configuration for the JPEG codec.
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct JpegCodecConfiguration {
+    pub quality: Quality,
+    pub color_config: ColorConfig,
+}
+
+impl Serialize for JpegCodecConfiguration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let raw = JpegCodecConfigurationRaw::from(*self);
+        raw.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for JpegCodecConfiguration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = JpegCodecConfigurationRaw::deserialize(deserializer)?;
+        JpegCodecConfiguration::try_from(raw).map_err(serde::de::Error::custom)
     }
 }
 
@@ -52,7 +67,7 @@ impl CodecTraitsV3 for JpegCodec {
         Self: Sized,
     {
         let configuration: JpegCodecConfiguration = metadata.to_typed_configuration()?;
-        let codec = Arc::new(JpegCodec::from(configuration));
+        let codec = Arc::new(JpegCodec(TurboCodec::from(configuration)));
         Ok(Codec::ArrayToBytes(codec))
     }
 }
@@ -70,7 +85,8 @@ impl CodecTraits for JpegCodec {
         if version != zarrs::plugin::ZarrVersion::V3 {
             return None;
         }
-        let config = JpegCodecConfiguration::from(*self);
+        let config =
+            JpegCodecConfiguration::try_from(self.0).expect("inner jpeg codec must be valid");
         let val =
             serde_json::to_value(config).expect("jpeg codec configuration should be serializable");
         let serde_json::Value::Object(map) = val else {
@@ -144,21 +160,12 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         check_dtype(data_type)?;
         let im_shape = JpegShape::try_from(shape)?;
         let b = get_bytes(&bytes)?;
-        let mut w = vec![];
-        let mut enc = jpeg_encoder::Encoder::new(&mut w, self.quality);
-        enc.set_optimized_huffman_tables(true);
-        enc.encode(
-            b,
-            im_shape.width.get(),
-            im_shape.height.get(),
-            if im_shape.is_rgb {
-                jpeg_encoder::ColorType::Rgb
-            } else {
-                jpeg_encoder::ColorType::Luma
-            },
-        )
-        .map_err(|e| CodecError::Other(format!("{e}")))?;
-        Ok(ArrayBytesRaw::Owned(w))
+        let out_b = self
+            .0
+            .encoder
+            .encode(&im_shape, b)
+            .map_err(|e| CodecError::Other(e.to_string()))?;
+        Ok(ArrayBytesRaw::Owned(out_b))
     }
 
     /// Decode a chunk.
@@ -174,21 +181,100 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         _options: &CodecOptions,
     ) -> Result<ArrayBytes<'a>, CodecError> {
         check_dtype(data_type)?;
-        JpegShape::try_from(shape)?;
-        let data = bytes.as_ref();
-        let curs = ZCursor::new(data);
-        let mut decoder = zune_jpeg::JpegDecoder::new(curs);
-        let pixels = decoder
-            .decode()
-            .map_err(|e| CodecError::Other(format!("{e}")))?;
-        Ok(ArrayBytes::new_flen(pixels))
+        let sh = JpegShape::try_from(shape)?;
+        let (out_sh, out_b) = self.0.decoder.decode(sh.is_rgb, bytes.as_ref())?;
+        if out_sh != sh {
+            return Err(CodecError::Other(format!(
+                "Decoded shape {:?} does not match expected shape {:?}",
+                out_sh, sh
+            )));
+        }
+
+        Ok(ArrayBytes::new_flen(out_b))
     }
 }
 
-struct JpegShape {
-    width: NonZeroU16,
-    height: NonZeroU16,
-    is_rgb: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorSpace {
+    #[default]
+    YCbCr,
+    Rgb,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChromaSubsampling {
+    Cs4_4_4,
+    Cs4_2_2,
+    Cs4_2_0,
+    Cs4_4_0,
+    // Cs4_4_1,
+    // Cs4_1_1,
+}
+
+type ChomaSubSamplingArray = [[u8; 2]; 3];
+
+impl ChromaSubsampling {
+    pub fn none() -> Self {
+        ChromaSubsampling::Cs4_4_4
+    }
+
+    pub fn default_ycbcr() -> Self {
+        ChromaSubsampling::Cs4_2_0
+    }
+
+    fn to_array(self) -> ChomaSubSamplingArray {
+        match self {
+            ChromaSubsampling::Cs4_4_4 => [[1, 1], [1, 1], [1, 1]],
+            ChromaSubsampling::Cs4_2_2 => [[2, 1], [1, 1], [1, 1]],
+            ChromaSubsampling::Cs4_2_0 => [[2, 2], [1, 1], [1, 1]],
+            ChromaSubsampling::Cs4_4_0 => [[1, 2], [1, 1], [1, 1]],
+            // ChromaSubsampling::Cs4_4_1 => [[1, 4], [1, 1], [1, 1]],
+            // ChromaSubsampling::Cs4_1_1 => [[4, 4], [1, 1], [1, 1]],
+        }
+    }
+
+    /// None if not valid.
+    fn from_array(arr: &ChomaSubSamplingArray) -> Option<Self> {
+        match arr {
+            [[1, 1], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_4_4),
+            [[2, 1], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_2_2),
+            [[2, 2], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_2_0),
+            [[1, 2], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_4_0),
+            // [[1, 4], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_4_1),
+            // [[4, 4], [1, 1], [1, 1]] => Some(ChromaSubsampling::Cs4_1_1),
+            _ => None,
+        }
+    }
+}
+
+impl Serialize for ChromaSubsampling {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let arr = self.to_array();
+        arr.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ChromaSubsampling {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let arr = ChomaSubSamplingArray::deserialize(deserializer)?;
+        Self::from_array(&arr).ok_or_else(|| {
+            serde::de::Error::custom(format!("invalid chroma subsampling array: {:?}", arr))
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct JpegShape {
+    pub width: NonZeroU16,
+    pub height: NonZeroU16,
+    pub is_rgb: bool,
 }
 
 impl TryFrom<&[NonZeroU64]> for JpegShape {
@@ -241,4 +327,154 @@ fn check_dtype(data_type: &DataType) -> Result<(), CodecError> {
         )));
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorConfig {
+    YCbCr { subsampling: ChromaSubsampling },
+    Rgb,
+    Grayscale,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+struct ColorConfigRaw {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    encoded_color_space: Option<ColorSpace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    subsampling: Option<ChromaSubsampling>,
+}
+
+impl TryFrom<ColorConfigRaw> for ColorConfig {
+    type Error = &'static str;
+
+    fn try_from(value: ColorConfigRaw) -> Result<Self, Self::Error> {
+        match value.encoded_color_space {
+            Some(ColorSpace::YCbCr) => {
+                let subsampling = value.subsampling.unwrap_or(ChromaSubsampling::Cs4_2_0);
+                Ok(ColorConfig::YCbCr { subsampling })
+            }
+            Some(ColorSpace::Rgb) => {
+                if let Some(subsampling) = value.subsampling
+                    && subsampling != ChromaSubsampling::Cs4_4_4
+                {
+                    return Err("Invalid subsampling for RGB");
+                }
+                Ok(ColorConfig::Rgb)
+            }
+            None => {
+                if let Some(subsampling) = value.subsampling
+                    && subsampling != ChromaSubsampling::Cs4_4_4
+                {
+                    return Err("Invalid subsampling for grayscale");
+                }
+                Ok(ColorConfig::Grayscale)
+            }
+        }
+    }
+}
+
+impl From<ColorConfig> for ColorConfigRaw {
+    fn from(value: ColorConfig) -> Self {
+        match value {
+            ColorConfig::YCbCr { subsampling: ss } => {
+                // compact representation where possible
+                let subsampling = if ss == ChromaSubsampling::default_ycbcr() {
+                    None
+                } else {
+                    Some(ss)
+                };
+                ColorConfigRaw {
+                    encoded_color_space: Some(ColorSpace::YCbCr),
+                    subsampling,
+                }
+            }
+            ColorConfig::Rgb => ColorConfigRaw {
+                encoded_color_space: Some(ColorSpace::Rgb),
+                subsampling: None,
+            },
+            ColorConfig::Grayscale => ColorConfigRaw {
+                encoded_color_space: None,
+                subsampling: None,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+struct JpegCodecConfigurationRaw {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    quality: Option<u8>,
+    #[serde(flatten)]
+    color_config: ColorConfigRaw,
+}
+
+impl TryFrom<JpegCodecConfigurationRaw> for JpegCodecConfiguration {
+    type Error = &'static str;
+
+    fn try_from(value: JpegCodecConfigurationRaw) -> Result<Self, Self::Error> {
+        let color_config = ColorConfig::try_from(value.color_config)?;
+        Ok(JpegCodecConfiguration {
+            quality: Quality::try_new(value.quality)?,
+            color_config,
+        })
+    }
+}
+
+impl From<JpegCodecConfiguration> for JpegCodecConfigurationRaw {
+    fn from(value: JpegCodecConfiguration) -> Self {
+        // compact representation where possible
+        let quality = if value.quality == Quality::default() {
+            None
+        } else {
+            Some(value.quality.into())
+        };
+        JpegCodecConfigurationRaw {
+            quality,
+            color_config: value.color_config.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Quality(u8);
+
+impl Default for Quality {
+    fn default() -> Self {
+        Quality(DEFAULT_QUALITY)
+    }
+}
+
+impl Quality {
+    pub fn max() -> Self {
+        Quality(100)
+    }
+
+    pub fn try_new(quality: Option<u8>) -> Result<Self, &'static str> {
+        if let Some(q) = quality {
+            Self::try_from(q)
+        } else {
+            Ok(Quality(DEFAULT_QUALITY))
+        }
+    }
+
+    pub fn value(&self) -> u8 {
+        self.0
+    }
+}
+
+impl TryFrom<u8> for Quality {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value > 100 {
+            return Err("Quality must be between 1 and 100");
+        }
+        Ok(Quality(value))
+    }
+}
+
+impl From<Quality> for u8 {
+    fn from(value: Quality) -> Self {
+        value.0
+    }
 }

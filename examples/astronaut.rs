@@ -1,12 +1,7 @@
-use std::{
-    fs::{remove_dir_all, remove_file},
-    io::BufReader,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{fs::remove_dir_all, io::BufReader, path::PathBuf, sync::Arc};
 
 use png::OutputInfo;
-use zarrs_jpeg::JpegCodec;
+use zarrs_jpeg::{ChromaSubsampling, ColorConfig, JpegCodec, Quality};
 
 fn data_dir() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -19,6 +14,7 @@ fn input_dir() -> PathBuf {
     path.push("input");
     path
 }
+
 fn output_dir() -> PathBuf {
     let mut path = data_dir();
     path.push("output");
@@ -42,28 +38,28 @@ fn read_astro() -> (OutputInfo, Vec<u8>) {
     (info, buf.to_vec())
 }
 
-/// Prove that we can write a JPEG outside of Zarr.
-fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
-    let path = output_dir().join("astronaut.jpeg");
-    if path.is_file() {
-        remove_file(&path).unwrap();
-    }
-    let f = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&path)
-        .unwrap();
-    let encoder = jpeg_encoder::Encoder::new(f, 90);
-    encoder
-        .encode(
-            data,
-            info.width as u16,
-            info.height as u16,
-            jpeg_encoder::ColorType::Rgb,
-        )
-        .unwrap();
-}
+// /// Prove that we can write a JPEG outside of Zarr.
+// fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
+//     let path = output_dir().join("astronaut.jpeg");
+//     if path.is_file() {
+//         remove_file(&path).unwrap();
+//     }
+//     let f = std::fs::OpenOptions::new()
+//         .write(true)
+//         .create(true)
+//         .truncate(true)
+//         .open(&path)
+//         .unwrap();
+//     let encoder = jpeg_encoder::Encoder::new(f, 90);
+//     encoder
+//         .encode(
+//             data,
+//             info.width as u16,
+//             info.height as u16,
+//             jpeg_encoder::ColorType::Rgb,
+//         )
+//         .unwrap();
+// }
 
 fn write_astro_zarr(
     info: &OutputInfo,
@@ -105,7 +101,12 @@ fn write_astro_zarr_jpeg(info: &OutputInfo, data: &[u8]) {
         data,
         "astronaut_jpeg.zarr",
         false,
-        JpegCodec { quality: 90 }.into(),
+        Some(JpegCodec::new(
+            Quality::default(),
+            ColorConfig::YCbCr {
+                subsampling: ChromaSubsampling::Cs4_2_0,
+            },
+        )),
     );
 }
 
@@ -115,13 +116,13 @@ fn write_astro_zarr_jpeg_channels(info: &OutputInfo, data: &[u8]) {
         data,
         "astronaut_jpeg_channels.zarr",
         true,
-        JpegCodec { quality: 90 }.into(),
+        Some(JpegCodec::new(Quality::default(), ColorConfig::Grayscale)),
     );
 }
 
 fn main() {
     let (info, pixels) = read_astro();
-    write_astro_jpeg(&info, &pixels);
+    // write_astro_jpeg(&info, &pixels);
     write_astro_zarr_raw(&info, &pixels);
     write_astro_zarr_jpeg(&info, &pixels);
     write_astro_zarr_jpeg_channels(&info, &pixels);

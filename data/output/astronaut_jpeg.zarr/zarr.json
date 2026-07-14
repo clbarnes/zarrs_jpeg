@@ -28,7 +28,22 @@
     {
       "name": "jpeg",
       "configuration": {
-        "quality": 90
+        "quality": 90,
+        "encoded_color_space": "ycbcr",
+        "subsampling": [
+          [
+            2,
+            2
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
       }
     }
   ],
