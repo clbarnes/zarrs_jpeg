@@ -113,13 +113,12 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         _fill_value: &FillValue,
     ) -> Result<BytesRepresentation, CodecError> {
         check_dtype(data_type)?;
-        JpegShape::try_from(shape)?;
-        let sz: u64 = shape.iter().map(|s| s.get()).product();
-
-        // Smallest valid JPEG plus number of pixels.
-        // Strictly, JPEGs can be any size because you can pack arbitrary app data into them.
-        // https://web.archive.org/web/20111224041840/http://www.techsupportteam.org/forum/digital-imaging-photography/1892-worlds-smallest-valid-jpeg.html
-        Ok(BytesRepresentation::BoundedSize(134 + sz))
+        let sh = JpegShape::try_from(shape)?;
+        self.0
+            .encoder
+            .max_encoded_size(&sh)
+            .map(|s| BytesRepresentation::BoundedSize(s as u64))
+            .map_err(|e| CodecError::Other(e.to_string()))
     }
 
     /// Encode a chunk.
@@ -159,13 +158,7 @@ impl ArrayToBytesCodecTraits for JpegCodec {
     ) -> Result<ArrayBytes<'a>, CodecError> {
         check_dtype(data_type)?;
         let sh = JpegShape::try_from(shape)?;
-        let (out_sh, out_b) = self.0.decoder.decode(sh.is_rgb, bytes.as_ref())?;
-        if out_sh != sh {
-            return Err(CodecError::Other(format!(
-                "Decoded shape {:?} does not match expected shape {:?}",
-                out_sh, sh
-            )));
-        }
+        let out_b = self.0.decoder.decode(&sh, bytes.as_ref())?;
 
         Ok(ArrayBytes::new_flen(out_b))
     }

@@ -86,14 +86,14 @@ impl TurboEncoder {
         Ok(compressor)
     }
 
-    // pub(crate) fn max_encoded_size(&self, shape: &JpegShape) -> Result<usize, &'static str> {
-    //     if shape.is_rgb == self.color_config.is_grayscale() {
-    //         return Err("Mismatch between shape color space and encoder color space");
-    //     }
-    //     self.make_compressor(shape)?
-    //         .buf_len(shape.width.get() as usize, shape.height.get() as usize)
-    //         .map_err(|_| "Failed to calculate buffer length")
-    // }
+    pub(crate) fn max_encoded_size(&self, shape: &JpegShape) -> Result<usize, &'static str> {
+        if shape.is_rgb == (self.color_space == Colorspace::Gray) {
+            return Err("Mismatch between shape color space and encoder color space");
+        }
+        self.make_compressor(shape)?
+            .buf_len(shape.width.get() as usize, shape.height.get() as usize)
+            .map_err(|_| "Failed to calculate buffer length")
+    }
 
     pub(crate) fn encode(&self, shape: &JpegShape, pixels: &[u8]) -> Result<Vec<u8>, &'static str> {
         let mut compressor = self.make_compressor(shape)?;
@@ -128,15 +128,15 @@ fn try_nzu16<T: TryInto<u16>>(value: T) -> Result<NonZeroU16, &'static str> {
 impl TurboDecoder {
     pub fn decode(
         &self,
-        is_rgb: bool,
+        expected_shape: &JpegShape,
         encoded: &[u8],
-    ) -> Result<(JpegShape, Vec<u8>), &'static str> {
-        let px_fmt = if is_rgb {
+    ) -> Result<Vec<u8>, &'static str> {
+        let px_fmt = if expected_shape.is_rgb {
             turbojpeg::PixelFormat::RGB
         } else {
             turbojpeg::PixelFormat::GRAY
         };
-        let img = turbojpeg::decompress(encoded, px_fmt).unwrap();
+        let img = turbojpeg::decompress(encoded, px_fmt).map_err(|_| "could not decompress")?;
         let sh = JpegShape {
             width: try_nzu16(img.width)?,
             height: try_nzu16(img.height)?,
@@ -148,7 +148,10 @@ impl TurboDecoder {
                 }
             },
         };
-        Ok((sh, img.pixels))
+        if expected_shape != &sh {
+            return Err("Decoded shape does not match expected shape");
+        }
+        Ok(img.pixels)
     }
 }
 
