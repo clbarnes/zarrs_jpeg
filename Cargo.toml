@@ -14,7 +14,7 @@ categories = ["multimedia::images", "multimedia::encoding", "parser-implementati
 inventory = "0.3.24"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-turbojpeg = { git = "https://github.com/clbarnes/rust-turbojpeg.git" , branch= "colortransform"}
+turbojpeg = "1.5"
 zarrs = { version = "0.23.13", default-features = false }
 
 [features]

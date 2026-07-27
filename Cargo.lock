@@ -1093,8 +1093,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "turbojpeg"
-version = "1.4.1-pre"
-source = "git+https://github.com/clbarnes/rust-turbojpeg.git?branch=colortransform#c8476c6c48eee0919be5af725258a85a5698e5e5"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81313fcd64aaa30ddfd59eaa122968136b2dd9cd41d9619b126cf71e67a01702"
 dependencies = [
  "gcd",
  "libc",
@@ -1105,7 +1106,8 @@ dependencies = [
 [[package]]
 name = "turbojpeg-sys"
 version = "1.2.0"
-source = "git+https://github.com/clbarnes/rust-turbojpeg.git?branch=colortransform#c8476c6c48eee0919be5af725258a85a5698e5e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49b5a974bc59382d35927e3a07eef2ba9a24fe7227cefe52ec44b508e1b90f86"
 dependencies = [
  "anyhow",
  "cmake",
