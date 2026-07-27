@@ -26,10 +26,7 @@
   "fill_value": 0,
   "codecs": [
     {
-      "name": "jpeg",
-      "configuration": {
-        "quality": 90
-      }
+      "name": "jpeg"
     }
   ],
   "attributes": {
