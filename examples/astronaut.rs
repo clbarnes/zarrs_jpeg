@@ -1,7 +1,11 @@
 use std::{fs::remove_dir_all, io::BufReader, path::PathBuf, sync::Arc};
 
 use png::OutputInfo;
-use zarrs_jpeg::{ChromaSubsampling, ColorConfig, JpegCodec, Quality};
+use template_cke::zarrs::TemplateChunkKeyEncoding;
+use zarrs_jpeg::{
+    JpegCodec, JpegEncoderTrait,
+    config::{ColorConfig, JpegCodecConfig, Quality, SamplingRatios},
+};
 
 fn data_dir() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -38,29 +42,6 @@ fn read_astro() -> (OutputInfo, Vec<u8>) {
     (info, buf.to_vec())
 }
 
-// /// Prove that we can write a JPEG outside of Zarr.
-// fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
-//     let path = output_dir().join("astronaut.jpeg");
-//     if path.is_file() {
-//         remove_file(&path).unwrap();
-//     }
-//     let f = std::fs::OpenOptions::new()
-//         .write(true)
-//         .create(true)
-//         .truncate(true)
-//         .open(&path)
-//         .unwrap();
-//     let encoder = jpeg_encoder::Encoder::new(f, 90);
-//     encoder
-//         .encode(
-//             data,
-//             info.width as u16,
-//             info.height as u16,
-//             jpeg_encoder::ColorType::Rgb,
-//         )
-//         .unwrap();
-// }
-
 fn write_astro_zarr(
     info: &OutputInfo,
     data: &[u8],
@@ -76,17 +57,22 @@ fn write_astro_zarr(
         Arc::new(zarrs::filesystem::FilesystemStore::new(&path).unwrap());
     let c_chunking = if slice_channels { 1 } else { 3 };
     let mut builder = zarrs::array::ArrayBuilder::new(
-        vec![info.width as u64, info.height as u64, 3],
-        vec![info.width as u64 / 2, info.height as u64 / 2, c_chunking],
+        vec![info.height as u64, info.width as u64, 3],
+        vec![info.height as u64, info.width as u64 / 2, c_chunking],
         zarrs::array::data_type::uint8(),
         0,
     );
+
     if let Some(c) = codec {
+        // So that each chunk has the JPEG extension for easy viewing.
+        builder
+            .chunk_key_encoding(TemplateChunkKeyEncoding::try_new("{*}.jpeg", Some("/")).unwrap());
         builder.array_to_bytes_codec(Arc::new(c));
     }
+
     let array = builder.build(store.clone(), "/").unwrap();
     array
-        .store_array_subset(&[0..512, 0..512, 0..3], data)
+        .store_array_subset(&[0..info.height as u64, 0..info.width as u64, 0..3], data)
         .unwrap();
     array.store_metadata().unwrap();
 }
@@ -96,33 +82,49 @@ fn write_astro_zarr_raw(info: &OutputInfo, data: &[u8]) {
 }
 
 fn write_astro_zarr_jpeg(info: &OutputInfo, data: &[u8]) {
+    let config = JpegCodecConfig::new(
+        Quality::default(),
+        ColorConfig::RgbToYCbCr {
+            subsampling: SamplingRatios::try_new(2, 2).unwrap(),
+        },
+    );
     write_astro_zarr(
         info,
         data,
         "astronaut_jpeg.zarr",
         false,
-        Some(JpegCodec::new(
-            Quality::default(),
-            ColorConfig::YCbCr {
-                subsampling: ChromaSubsampling::Cs4_2_0,
-            },
-        )),
+        Some(JpegCodec::try_from(config).unwrap()),
     );
 }
 
 fn write_astro_zarr_jpeg_channels(info: &OutputInfo, data: &[u8]) {
+    let config = JpegCodecConfig::new(Quality::default(), ColorConfig::Grayscale);
     write_astro_zarr(
         info,
         data,
         "astronaut_jpeg_channels.zarr",
         true,
-        Some(JpegCodec::new(Quality::default(), ColorConfig::Grayscale)),
+        Some(JpegCodec::try_from(config).unwrap()),
     );
+}
+
+fn write_astro_jpeg(info: &OutputInfo, data: &[u8]) {
+    let config = JpegCodecConfig::new(
+        Quality::default(),
+        ColorConfig::RgbToYCbCr {
+            subsampling: SamplingRatios::try_new(2, 2).unwrap(),
+        },
+    );
+    let codec = JpegCodec::try_from(config).unwrap();
+    let shape = zarrs_jpeg::JpegShape::try_new(info.width as u64, info.height as u64).unwrap();
+    let jpeg_data = codec.encode(data, shape).unwrap();
+    let path = output_dir().join("astronaut.jpeg");
+    std::fs::write(path, jpeg_data).unwrap();
 }
 
 fn main() {
     let (info, pixels) = read_astro();
-    // write_astro_jpeg(&info, &pixels);
+    write_astro_jpeg(&info, &pixels);
     write_astro_zarr_raw(&info, &pixels);
     write_astro_zarr_jpeg(&info, &pixels);
     write_astro_zarr_jpeg_channels(&info, &pixels);

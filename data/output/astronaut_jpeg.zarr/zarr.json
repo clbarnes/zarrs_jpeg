@@ -11,15 +11,16 @@
     "name": "regular",
     "configuration": {
       "chunk_shape": [
-        256,
+        512,
         256,
         3
       ]
     }
   },
   "chunk_key_encoding": {
-    "name": "default",
+    "name": "template",
     "configuration": {
+      "format": "{*}.jpeg",
       "separator": "/"
     }
   },
@@ -28,7 +29,23 @@
     {
       "name": "jpeg",
       "configuration": {
-        "encoded_color_space": "ycbcr"
+        "quality": 95,
+        "encoded_color_space": "ycbcr",
+        "decoded_color_space": "rgb",
+        "subsampling": [
+          [
+            2,
+            2
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
       }
     }
   ],

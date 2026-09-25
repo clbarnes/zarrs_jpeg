@@ -11,7 +11,7 @@
     "name": "regular",
     "configuration": {
       "chunk_shape": [
-        256,
+        512,
         256,
         3
       ]
