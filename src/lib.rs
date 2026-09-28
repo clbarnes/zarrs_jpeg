@@ -96,14 +96,15 @@ pub(crate) mod tests {
     pub static RAW_IMG: LazyLock<(JpegShape, Vec<u8>)> = LazyLock::new(read_png_px);
     pub static RAW_IMG_GRAYSCALES: LazyLock<(JpegShape, [Vec<u8>; 3])> = LazyLock::new(|| {
         let (shape, px) = RAW_IMG.clone();
-        let (r, g, b) =
-            px.chunks_exact(3)
-                .fold((Vec::new(), Vec::new(), Vec::new()), |mut acc, chunk| {
-                    acc.0.push(chunk[0]);
-                    acc.1.push(chunk[1]);
-                    acc.2.push(chunk[2]);
-                    acc
-                });
+        let (r, g, b) = px.as_chunks::<3>().0.iter().fold(
+            (Vec::new(), Vec::new(), Vec::new()),
+            |mut acc, chunk| {
+                acc.0.push(chunk[0]);
+                acc.1.push(chunk[1]);
+                acc.2.push(chunk[2]);
+                acc
+            },
+        );
         (shape, [r, g, b])
     });
 
