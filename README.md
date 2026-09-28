@@ -4,11 +4,11 @@
 
 The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/pull/66) codec for Zarr.
 
+While originally written for use with [`zarrs`](https://zarrs.dev) (and still supporting it with the default `zarrs` feature), this can be wrapped for use with other zarr v3 implementations.
+
 ## Usage
 
-The core provided type, `JpegCodec`, implements [`zarrs`](https://zarrs.dev) codec traits with the correct feature (by default), but also implement more general encode/decode methods if you want to use it yourself.
-
-It implements `serde::{Serialize, Deserialize}` for the `"configuration"` object of the codec, i.e.
+The core provided types are `JpegCodecConfig`, which implements `serde::{Serialize, Deserialize}` for the representation used in the `"configuration"` object of the codec, i.e.
 
 ```jsonc
 {
@@ -28,9 +28,11 @@ It implements `serde::{Serialize, Deserialize}` for the `"configuration"` object
 }
 ```
 
-The "static" form, i.e. just the configuration, which is guaranteed to be in-spec but cannot do any encoding itself, is `JpegCodecConfig`.
+There is a type-level validity guarantee.
 
-The traits `JpegCodecTrait`, `JpegEncoderTrait`, and `JpegDecoderTrait` control the codec behaviour.
+You can then use `TryInto` to convert this into a `JpegCodec`, which implements `JpegEncoderTrait` and `JpegDecoderTrait` to actually encode and decode JPEG data.
+
+The `JpegCodec` itself implements `Serialize` and `Deserialize` (by going via `JpegCodecConfig`).
 
 ### Logging
 
@@ -63,8 +65,9 @@ Alternative backends may be added in future.
 
 This produces:
 
-- `astronaut_raw.zarr`: a raw zarr array with 4 XY chunks, to prove that writing a zarr array works
-- `astronaut_jpeg.zarr`: a JPEG-compressed Zarr array with 4 XY chunks - each chunk should be a valid RGB JFIF
-- `astronaut_jpeg_channels.zarr`: a JPEG-compressed Zarr array with 4 XY chunks x 1 chunk for each channel - each chunk should be a valid grayscale JFIF
+- `astronaut.jpeg`: a single JPEG, to prove that pixels can be written through the encoder
+- `astronaut_raw.zarr`: a raw zarr array with XY chunks, to prove that writing a zarr array works
+- `astronaut_jpeg.zarr`: a JPEG-compressed Zarr array with XY chunks - each chunk should be a valid RGB JFIF
+- `astronaut_jpeg_channels.zarr`: a JPEG-compressed Zarr array with XY chunks and 1 chunk for each channel - each chunk should be a valid grayscale JFIF
 
 This example uses the [template chunk key encoding extension](https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/template) so that every chunk has the expected `.jpeg` suffix.

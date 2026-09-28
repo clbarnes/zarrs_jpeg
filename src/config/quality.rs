@@ -22,10 +22,14 @@ impl Default for Quality {
 }
 
 impl Quality {
+    /// Maximum quality (still lossy).
     pub fn max() -> Self {
         Quality(100)
     }
 
+    /// Create from a u8, using the default quality if None is given.
+    ///
+    /// To skip the None check, use `Quality::try_from` directly.
     pub fn try_new(quality: Option<u8>) -> Result<Self, crate::Error> {
         if let Some(q) = quality {
             Self::try_from(q)
@@ -34,6 +38,7 @@ impl Quality {
         }
     }
 
+    /// Get the quality value as a u8; guaranteed to be <=100.
     pub fn value(&self) -> u8 {
         self.0
     }

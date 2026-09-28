@@ -1,3 +1,4 @@
+//! Raw representation of the JSON configuration, used to deserialize into the final configuration types.
 use super::ColorSpace;
 use super::{ColorConfig, JpegCodecConfig, Quality, SamplingRatio, SamplingRatios};
 use serde::{Deserialize, Serialize};

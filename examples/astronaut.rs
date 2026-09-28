@@ -3,8 +3,7 @@ use std::{fs::remove_dir_all, io::BufReader, path::PathBuf, sync::Arc};
 use png::OutputInfo;
 use template_cke::zarrs::TemplateChunkKeyEncoding;
 use zarrs_jpeg::{
-    JpegCodec, JpegEncoderTrait,
-    config::{ColorConfig, JpegCodecConfig, Quality, SamplingRatios},
+    ColorConfig, JpegCodec, JpegCodecConfig, JpegEncoderTrait, Quality, SamplingRatios,
 };
 
 fn data_dir() -> PathBuf {

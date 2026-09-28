@@ -4,6 +4,8 @@ use crate::types::JpegShape;
 mod turbo;
 pub(crate) use turbo::TurboCodec;
 
+/// Base trait for JPEG codec-like types,
+/// which calculates features about the JPEG which this codec requires.
 pub trait JpegCodecTrait: TryFrom<JpegCodecConfig> {
     /// How many components are in the decoded image (1 for grayscale, 3 for RGB or YCbCr).
     fn decoded_components(&self) -> usize;
@@ -12,6 +14,7 @@ pub trait JpegCodecTrait: TryFrom<JpegCodecConfig> {
     fn mcu_shape(&self) -> (u16, u16);
 }
 
+/// Trait for encoding JPEG images.
 pub trait JpegEncoderTrait: JpegCodecTrait {
     /// Get the maximum size in bytes of the encoded JPEG data for an image of the given shape.
     fn max_encoded_size(&self, shape: JpegShape) -> crate::Result<usize>;
@@ -38,7 +41,9 @@ pub trait JpegEncoderTrait: JpegCodecTrait {
     fn encode(&self, data: &[u8], shape: JpegShape) -> crate::Result<Vec<u8>>;
 }
 
+/// Trait for decoding JPEG images.
 pub trait JpegDecoderTrait: JpegCodecTrait {
+    /// Decode the JPEG buffer into raw pixel data.
     fn decode(&self, data: &[u8]) -> crate::Result<(JpegShape, Vec<u8>)>;
 
     /// Decode the given JPEG data into pixel bytes,

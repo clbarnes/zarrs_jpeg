@@ -1,3 +1,4 @@
+//! jpeg codec implementation based on libjpeg-turbo bindings.
 use super::{JpegDecoderTrait, JpegEncoderTrait};
 use crate::codec::JpegCodecTrait;
 use crate::config::{ColorConfig, JpegCodecConfig, SamplingRatios};
@@ -171,5 +172,67 @@ impl JpegDecoderTrait for TurboCodec {
                 "Unsupported decoded color space {c:?}"
             ))),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TurboCodec;
+    use crate::tests::{RAW_IMG, RAW_IMG_GRAYSCALES, check_codec_roundtrip};
+    use crate::{ColorConfig, JpegCodecConfig, Quality};
+
+    fn check_config_roundtrip(config: JpegCodecConfig, epsilon: f32) {
+        let codec = TurboCodec::try_from(config).unwrap();
+        let (shape, px) = RAW_IMG.clone();
+        check_codec_roundtrip(codec, epsilon, &px, shape);
+    }
+
+    #[test]
+    fn test_rgb() {
+        let config = JpegCodecConfig::new(Quality::max(), ColorConfig::Rgb);
+        check_config_roundtrip(config, 0.1);
+    }
+
+    #[test]
+    fn test_ycbcr() {
+        let config = JpegCodecConfig::new(
+            Quality::max(),
+            ColorConfig::try_new_rgb_to_ycbcr(1, 1).unwrap(),
+        );
+        check_config_roundtrip(config, 0.1);
+    }
+
+    #[test]
+    fn test_ycbcr_subsampled_22() {
+        let config = JpegCodecConfig::new(
+            Quality::max(),
+            ColorConfig::try_new_rgb_to_ycbcr(2, 2).unwrap(),
+        );
+        check_config_roundtrip(config, 0.2);
+    }
+
+    #[test]
+    fn test_ycbcr_subsampled_41() {
+        let config = JpegCodecConfig::new(
+            Quality::max(),
+            ColorConfig::try_new_rgb_to_ycbcr(4, 1).unwrap(),
+        );
+        check_config_roundtrip(config, 0.3);
+    }
+
+    #[test]
+    fn test_rgb_low_qual() {
+        let config = JpegCodecConfig::new(Quality::try_from(50).unwrap(), ColorConfig::Rgb);
+        check_config_roundtrip(config, 0.3);
+    }
+
+    #[test]
+    fn test_grayscale() {
+        let config = JpegCodecConfig::new(Quality::max(), ColorConfig::Grayscale);
+        let epsilon = 0.1;
+
+        let codec = TurboCodec::try_from(config).unwrap();
+        let (shape, [r, _g, _b]) = RAW_IMG_GRAYSCALES.clone();
+        check_codec_roundtrip(codec, epsilon, &r, shape);
     }
 }
