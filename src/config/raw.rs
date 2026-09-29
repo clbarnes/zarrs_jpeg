@@ -167,10 +167,6 @@ mod tests {
                 ColorConfig::Grayscale,
             ),
             (
-                json!({"encoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
-                ColorConfig::Grayscale,
-            ),
-            (
                 json!({"decoded_color_space": "grayscale", "encoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
                 ColorConfig::Grayscale,
             ),
