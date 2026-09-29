@@ -36,8 +36,7 @@ impl From<JpegCodecConfig> for ConfigRaw {
 /// Representation of the stored JSON fields for color configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct ColorConfigRaw {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encoded_color_space: Option<ColorSpace>,
+    encoded_color_space: ColorSpace,
     #[serde(skip_serializing_if = "Option::is_none")]
     decoded_color_space: Option<ColorSpace>,
     subsampling: Vec<SamplingRatios>,
@@ -47,7 +46,7 @@ impl TryFrom<ColorConfigRaw> for ColorConfig {
     type Error = crate::Error;
 
     fn try_from(value: ColorConfigRaw) -> Result<Self, Self::Error> {
-        let enc_cspace = value.encoded_color_space.unwrap_or(ColorSpace::Grayscale);
+        let enc_cspace = value.encoded_color_space;
         let dec_cspace = value.decoded_color_space.unwrap_or_else(|| {
             if enc_cspace == ColorSpace::Grayscale {
                 ColorSpace::Grayscale
@@ -112,17 +111,17 @@ impl From<ColorConfig> for ColorConfigRaw {
     fn from(val: ColorConfig) -> Self {
         match val {
             ColorConfig::Grayscale => ColorConfigRaw {
-                encoded_color_space: None,
+                encoded_color_space: ColorSpace::Grayscale,
                 decoded_color_space: Some(ColorSpace::Grayscale),
                 subsampling: vec![SamplingRatios::default()],
             },
             ColorConfig::Rgb => ColorConfigRaw {
-                encoded_color_space: Some(ColorSpace::Rgb),
+                encoded_color_space: ColorSpace::Rgb,
                 decoded_color_space: Some(ColorSpace::Rgb),
                 subsampling: vec![SamplingRatios::default(); 3],
             },
             ColorConfig::YCbCr { subsampling } => ColorConfigRaw {
-                encoded_color_space: Some(ColorSpace::YCbCr),
+                encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::YCbCr),
                 subsampling: vec![
                     subsampling,
@@ -131,7 +130,7 @@ impl From<ColorConfig> for ColorConfigRaw {
                 ],
             },
             ColorConfig::RgbToYCbCr { subsampling } => ColorConfigRaw {
-                encoded_color_space: Some(ColorSpace::YCbCr),
+                encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::Rgb),
                 subsampling: vec![
                     subsampling,
@@ -163,13 +162,16 @@ mod tests {
                 json!({"decoded_color_space": "rgb", "encoded_color_space": "rgb", "subsampling": [[1, 1], [1, 1], [1, 1]]}),
                 ColorConfig::Rgb,
             ),
-            (json!({"subsampling": [[1, 1]]}), ColorConfig::Grayscale),
+            (
+                json!({"subsampling": [[1, 1]], "encoded_color_space": "grayscale"}),
+                ColorConfig::Grayscale,
+            ),
             (
                 json!({"encoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
                 ColorConfig::Grayscale,
             ),
             (
-                json!({"decoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
+                json!({"decoded_color_space": "grayscale", "encoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
                 ColorConfig::Grayscale,
             ),
         ] {
