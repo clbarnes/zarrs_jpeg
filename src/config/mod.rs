@@ -76,7 +76,7 @@ impl JpegCodecConfig {
     }
 }
 
-/// Subsampling ratio, i.e. how many luminance pixels there are per chrominance pixel.
+/// Subsampling ratio, i.e. how many luminance pixels there are per chrominance pixel, in any particular direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "u8", into = "u8")]
 pub struct SamplingRatio(u8);
@@ -112,7 +112,8 @@ impl TryFrom<u8> for SamplingRatio {
     }
 }
 
-/// Pixel subsampling ratios, i.e. how many luminance pixels there are per chrominance pixel.
+/// Pixel subsampling ratios, i.e. how many luminance pixels there are per chrominance pixel,
+/// in horizontal and vertical directions.
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(
     from = "(SamplingRatio, SamplingRatio)",
