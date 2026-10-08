@@ -11,7 +11,7 @@ mod types;
 pub use errors::{Error, Result};
 
 mod codec;
-pub use codec::{JpegCodecTrait, JpegDecoderTrait, JpegEncoderTrait};
+pub use codec::{HasJpegCodecConfig, JpegDecoderTrait, JpegEncoderTrait};
 
 use serde::{Deserialize, Serialize};
 
@@ -30,20 +30,9 @@ pub struct JpegCodec {
     codec: codec::TurboCodec,
 }
 
-impl JpegCodec {
-    /// Get the configuration object for this codec.
-    pub fn config(&self) -> &JpegCodecConfig {
-        &self.config
-    }
-}
-
-impl JpegCodecTrait for JpegCodec {
-    fn decoded_components(&self) -> usize {
-        self.codec.decoded_components()
-    }
-
-    fn mcu_shape(&self) -> (u16, u16) {
-        self.codec.mcu_shape()
+impl HasJpegCodecConfig for JpegCodec {
+    fn config(&self) -> JpegCodecConfig {
+        self.config
     }
 }
 
@@ -124,7 +113,7 @@ pub(crate) mod tests {
         )
     }
 
-    pub fn check_codec_roundtrip<C: JpegCodecTrait + JpegDecoderTrait + JpegEncoderTrait>(
+    pub fn check_codec_roundtrip<C: HasJpegCodecConfig + JpegDecoderTrait + JpegEncoderTrait>(
         codec: C,
         epsilon: f32,
         px: &[u8],

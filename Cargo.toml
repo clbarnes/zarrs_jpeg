@@ -13,15 +13,24 @@ categories = ["multimedia::images", "multimedia::encoding", "parser-implementati
 [dependencies]
 inventory = "0.3.24"
 log = "0.4.34"
+mozjpeg-rs = { version = "0.9.2", optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.21"
-turbojpeg = "1.5"
+turbojpeg = {version = "1.5", optional=true}
 zarrs = { version = "0.23.13", default-features = false, optional = true}
+zune-jpeg = { version = "0.5.15", optional = true }
 
 [features]
-default = ["zarrs"]
+default = ["zarrs", "backend-turbojpeg"]
 zarrs = ["dep:zarrs"]
+backend-turbojpeg = ["dep:turbojpeg"]
+
+# Decode-only
+backend-decode-zune-jpeg = ["dep:zune-jpeg"]
+# Encode-only; would prefer something less vibecoded but this is pretty much the only pure rust encoder with the right features at time of writing.
+backend-encode-mozjpeg-rs = ["dep:mozjpeg-rs"]
+pure-rust = ["backend-decode-zune-jpeg", "backend-encode-mozjpeg-rs"]
 
 [dev-dependencies]
 png = "0.18.1"

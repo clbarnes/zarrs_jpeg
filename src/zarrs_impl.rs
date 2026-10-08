@@ -2,7 +2,7 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use crate::{JpegCodec, JpegCodecConfig};
 use crate::{
-    codec::{JpegCodecTrait, JpegDecoderTrait, JpegEncoderTrait},
+    codec::{HasJpegCodecConfig, JpegDecoderTrait, JpegEncoderTrait},
     types::JpegShape,
 };
 use zarrs::{
