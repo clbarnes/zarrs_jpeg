@@ -147,6 +147,32 @@ impl SamplingRatios {
     pub fn values(&self) -> (u8, u8) {
         (self.horizontal.0, self.vertical.0)
     }
+
+    /// Get the subsampling values as a triple of (J, a, b).
+    /// JPEG supports subsampling ratios which are not expressible in J:a:b form,
+    /// where this method will return None.
+    ///
+    /// - J is the width of the reference luma block
+    ///   - this is almost always normalised to 4; this method always returns 4
+    /// - a is the number of horizontal chroma samples in the first row
+    ///   - a=4 means no horizontal subsampling
+    ///   - a=2 means 2:1 horizontal subsampling
+    ///   - a=1 means 4:1 horizontal subsampling
+    /// - b is the number of additional horizontal chroma samples needed for the second row
+    ///   - b=0 means "use a's samples", i.e. 2:1 vertical subsampling
+    ///   - b=a means "use the same subsampling scheme as the first row", i.e. no verticla subsampling
+    ///   - but maybe it doesn't in the case of 4:4:1, which is 4:1 vertical downsampling and no horizontal downsampling
+    pub fn as_jab_triple(&self) -> Option<(u8, u8, u8)> {
+        match (self.horizontal.value(), self.vertical.value()) {
+            (1, 1) => Some((4, 4, 4)),
+            (2, 1) => Some((4, 2, 2)),
+            (1, 2) => Some((4, 4, 0)),
+            (2, 2) => Some((4, 2, 0)),
+            (4, 1) => Some((4, 1, 1)),
+            (1, 4) => Some((4, 4, 1)),
+            _ => None,
+        }
+    }
 }
 
 impl From<SamplingRatios> for (SamplingRatio, SamplingRatio) {

@@ -49,8 +49,8 @@ impl HasJpegCodecConfig for NullEncoder {
 }
 
 impl JpegEncoderTrait for NullEncoder {
-    fn max_encoded_size(&self, _shape: crate::JpegShape) -> crate::Result<usize> {
-        Err(crate::Error::Unsupported("max_encoded_size"))
+    fn max_encoded_size(&self, shape: crate::JpegShape) -> crate::Result<usize> {
+        Ok(self.config.max_encoded_size_fallback(shape))
     }
 
     fn encode(&self, _data: &[u8], _shape: crate::JpegShape) -> crate::Result<Vec<u8>> {

@@ -1,6 +1,6 @@
 //! jpeg codec implementation based on libjpeg-turbo bindings.
 use super::{JpegDecoderTrait, JpegEncoderTrait};
-use crate::codec::HasJpegCodecConfig;
+use crate::codec::{HasJpegCodecConfig, JpegCodecTraits};
 use crate::config::{ColorConfig, JpegCodecConfig, SamplingRatios};
 use crate::types::JpegShape;
 
@@ -160,6 +160,8 @@ impl JpegDecoderTrait for TurboCodec {
         }
     }
 }
+
+impl JpegCodecTraits for TurboCodec {}
 
 #[cfg(test)]
 mod tests {

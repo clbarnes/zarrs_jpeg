@@ -17,9 +17,16 @@ pub enum Error {
     Wrapped(#[from] Box<dyn std::error::Error + Send + Sync>),
     /// Error from the TurboJPEG library.
     #[error("turbojpeg error: {0}")]
+    #[cfg(feature = "backend-turbojpeg")]
     Turbojpeg(#[from] turbojpeg::Error),
+    /// Error from the zune-jpeg library.
+    #[cfg(feature = "backend-decode-zune-jpeg")]
     #[error("zune-jpeg decode error: {0}")]
     ZuneJpegDecode(#[from] zune_jpeg::errors::DecodeErrors),
+    /// Error from the mozjpeg-rs library.
+    #[error("mozjpeg-rs encode error: {0}")]
+    #[cfg(feature = "backend-encode-mozjpeg-rs")]
+    MozJpegRs(#[from] mozjpeg_rs::Error),
     /// Error indicating that the shape of the JPEG image was not as expected.
     #[error("Expected {expected:?}, got {got:?}")]
     UnexpectedShape {

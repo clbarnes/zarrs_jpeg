@@ -11,26 +11,30 @@ keywords = ["zarr", "jpeg", "image", "chunked"]
 categories = ["multimedia::images", "multimedia::encoding", "parser-implementations"]
 
 [dependencies]
-inventory = "0.3.24"
 log = "0.4.34"
-mozjpeg-rs = { version = "0.9.2", optional = true }
+thiserror = "2.0.21"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-thiserror = "2.0.21"
-turbojpeg = {version = "1.5", optional=true}
+
+inventory = {version = "0.3.24", optional = true}
 zarrs = { version = "0.23.13", default-features = false, optional = true}
+
+# Backends
+mozjpeg-rs = { version = "0.9.2", optional = true }
+turbojpeg = {version = "1.5", optional=true}
 zune-jpeg = { version = "0.5.15", optional = true }
 
 [features]
 default = ["zarrs", "backend-turbojpeg"]
-zarrs = ["dep:zarrs"]
+
+zarrs = ["dep:zarrs", "dep:inventory"]
 backend-turbojpeg = ["dep:turbojpeg"]
 
 # Decode-only
 backend-decode-zune-jpeg = ["dep:zune-jpeg"]
 # Encode-only; would prefer something less vibecoded but this is pretty much the only pure rust encoder with the right features at time of writing.
 backend-encode-mozjpeg-rs = ["dep:mozjpeg-rs"]
-pure-rust = ["backend-decode-zune-jpeg", "backend-encode-mozjpeg-rs"]
+backend-rust = ["backend-decode-zune-jpeg", "backend-encode-mozjpeg-rs"]
 
 [dev-dependencies]
 png = "0.18.1"
@@ -39,3 +43,6 @@ template_cke = "0.1.0"
 zarrs = { version = "0.23.13", default-features = false, features = [
     "filesystem",
 ] }
+
+[profile.dev.package.zune-jpeg]
+opt-level = 3

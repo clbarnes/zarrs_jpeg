@@ -10,66 +10,31 @@ mod errors;
 mod types;
 pub use errors::{Error, Result};
 
-mod codec;
+pub mod codec;
 pub use codec::{HasJpegCodecConfig, JpegDecoderTrait, JpegEncoderTrait};
-
-use serde::{Deserialize, Serialize};
 
 /// Default quality for JPEG encoding, used when no quality is specified.
 pub const DEFAULT_QUALITY: u8 = 95;
 
 pub use crate::types::JpegShape;
 
-/// Codec for encoding and decoding JPEG images.
-///
-/// Instantiate with [TryFrom] [JpegCodecConfig].
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(try_from = "JpegCodecConfig", into = "JpegCodecConfig")]
-pub struct JpegCodec {
-    config: JpegCodecConfig,
-    codec: codec::TurboCodec,
-}
+/// Codec implementation which delegates to the best available split encode/decode implementation.
+pub type DefaultSplitCodec = codec::SplitCodec<
+    cfg_select! {
+        feature = "backend-encode-mozjpeg-rs" => codec::MozJpegRsEncoder,
+        _ => codec::NullEncoder,
+    },
+    cfg_select! {
+        feature = "backend-decode-zune-jpeg" => codec::ZuneDecoder,
+        _ => codec::NullDecoder,
+    },
+>;
 
-impl HasJpegCodecConfig for JpegCodec {
-    fn config(&self) -> JpegCodecConfig {
-        self.config
-    }
-}
-
-impl JpegEncoderTrait for JpegCodec {
-    fn max_encoded_size(&self, shape: JpegShape) -> crate::Result<usize> {
-        self.codec.max_encoded_size(shape)
-    }
-
-    fn encode(&self, data: &[u8], shape: JpegShape) -> crate::Result<Vec<u8>> {
-        self.codec.encode(data, shape)
-    }
-}
-
-impl JpegDecoderTrait for JpegCodec {
-    fn decode(&self, data: &[u8]) -> crate::Result<(JpegShape, Vec<u8>)> {
-        self.codec.decode(data)
-    }
-
-    fn decode_checked(&self, data: &[u8], shape: JpegShape) -> crate::Result<Vec<u8>> {
-        self.codec.decode_checked(data, shape)
-    }
-}
-
-impl From<JpegCodec> for JpegCodecConfig {
-    fn from(codec: JpegCodec) -> Self {
-        codec.config
-    }
-}
-
-impl TryFrom<JpegCodecConfig> for JpegCodec {
-    type Error = crate::Error;
-
-    fn try_from(config: JpegCodecConfig) -> Result<Self, Self::Error> {
-        let codec = codec::TurboCodec::try_from(config)?;
-        Ok(Self { config, codec })
-    }
-}
+/// Preferred codec implementation depending on available features.
+pub type JpegCodec = cfg_select! {
+    feature = "backend-turbojpeg" => codec::TurboCodec,
+    _ => DefaultSplitCodec,
+};
 
 #[cfg(test)]
 pub(crate) mod tests {
