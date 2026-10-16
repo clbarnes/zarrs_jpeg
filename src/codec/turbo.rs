@@ -1,17 +1,17 @@
 //! jpeg codec implementation based on libjpeg-turbo bindings.
 use super::{JpegDecoderTrait, JpegEncoderTrait};
-use crate::codec::JpegCodecTrait;
+use crate::codec::{HasJpegCodecConfig, JpegCodecTraits};
 use crate::config::{ColorConfig, JpegCodecConfig, SamplingRatios};
 use crate::types::JpegShape;
 
 /// Codec implementation based on libjpeg-turbo bindings.
 #[derive(Debug, Clone, Copy)]
 pub struct TurboCodec {
+    config: JpegCodecConfig,
     quality: i32,
     decoded_color_space: turbojpeg::Colorspace,
     encoded_color_space: turbojpeg::Colorspace,
     subsampling: turbojpeg::Subsamp,
-    mcu_shape: (u16, u16),
 }
 
 impl TryFrom<SamplingRatios> for turbojpeg::Subsamp {
@@ -35,55 +35,41 @@ impl TryFrom<JpegCodecConfig> for TurboCodec {
 
     fn try_from(config: JpegCodecConfig) -> Result<Self, Self::Error> {
         let quality = config.quality.value() as i32;
-        let mcu_shape = config.mcu_shape();
-        match config.color_config {
-            ColorConfig::YCbCr { subsampling } => Ok(TurboCodec {
-                quality,
-                decoded_color_space: turbojpeg::Colorspace::YCbCr,
-                encoded_color_space: turbojpeg::Colorspace::YCbCr,
-                subsampling: subsampling.try_into()?,
-                mcu_shape,
-            }),
-            ColorConfig::RgbToYCbCr { subsampling } => Ok(TurboCodec {
-                quality,
-                decoded_color_space: turbojpeg::Colorspace::RGB,
-                encoded_color_space: turbojpeg::Colorspace::YCbCr,
-                subsampling: subsampling.try_into()?,
-                mcu_shape,
-            }),
-            ColorConfig::Grayscale => Ok(TurboCodec {
-                quality,
-                decoded_color_space: turbojpeg::Colorspace::Gray,
-                encoded_color_space: turbojpeg::Colorspace::Gray,
-                subsampling: turbojpeg::Subsamp::Gray,
-                mcu_shape,
-            }),
-            ColorConfig::Rgb => Ok(TurboCodec {
-                quality,
-                decoded_color_space: turbojpeg::Colorspace::RGB,
-                encoded_color_space: turbojpeg::Colorspace::RGB,
-                subsampling: turbojpeg::Subsamp::None,
-                mcu_shape,
-            }),
-        }
+        let (decoded_color_space, encoded_color_space, subsampling) = match config.color_config {
+            ColorConfig::YCbCr { subsampling } => (
+                turbojpeg::Colorspace::YCbCr,
+                turbojpeg::Colorspace::YCbCr,
+                subsampling.try_into()?,
+            ),
+            ColorConfig::RgbToYCbCr { subsampling } => (
+                turbojpeg::Colorspace::RGB,
+                turbojpeg::Colorspace::YCbCr,
+                subsampling.try_into()?,
+            ),
+            ColorConfig::Grayscale => (
+                turbojpeg::Colorspace::Gray,
+                turbojpeg::Colorspace::Gray,
+                turbojpeg::Subsamp::Gray,
+            ),
+            ColorConfig::Rgb => (
+                turbojpeg::Colorspace::RGB,
+                turbojpeg::Colorspace::RGB,
+                turbojpeg::Subsamp::None,
+            ),
+        };
+        Ok(TurboCodec {
+            config,
+            quality,
+            decoded_color_space,
+            encoded_color_space,
+            subsampling,
+        })
     }
 }
 
-impl JpegCodecTrait for TurboCodec {
-    fn decoded_components(&self) -> usize {
-        match self.decoded_color_space {
-            turbojpeg::Colorspace::RGB => 3,
-            turbojpeg::Colorspace::Gray => 1,
-            turbojpeg::Colorspace::YCbCr => 3,
-            _ => unreachable!(
-                "Unsupported decoded color space {:?}",
-                self.decoded_color_space
-            ),
-        }
-    }
-
-    fn mcu_shape(&self) -> (u16, u16) {
-        self.mcu_shape
+impl HasJpegCodecConfig for TurboCodec {
+    fn config(&self) -> JpegCodecConfig {
+        self.config
     }
 }
 
@@ -175,64 +161,11 @@ impl JpegDecoderTrait for TurboCodec {
     }
 }
 
+impl JpegCodecTraits for TurboCodec {}
+
 #[cfg(test)]
 mod tests {
     use super::TurboCodec;
-    use crate::tests::{RAW_IMG, RAW_IMG_GRAYSCALES, check_codec_roundtrip};
-    use crate::{ColorConfig, JpegCodecConfig, Quality};
 
-    fn check_config_roundtrip(config: JpegCodecConfig, epsilon: f32) {
-        let codec = TurboCodec::try_from(config).unwrap();
-        let (shape, px) = RAW_IMG.clone();
-        check_codec_roundtrip(codec, epsilon, &px, shape);
-    }
-
-    #[test]
-    fn test_rgb() {
-        let config = JpegCodecConfig::new(Quality::max(), ColorConfig::Rgb);
-        check_config_roundtrip(config, 0.1);
-    }
-
-    #[test]
-    fn test_ycbcr() {
-        let config = JpegCodecConfig::new(
-            Quality::max(),
-            ColorConfig::try_new_rgb_to_ycbcr(1, 1).unwrap(),
-        );
-        check_config_roundtrip(config, 0.1);
-    }
-
-    #[test]
-    fn test_ycbcr_subsampled_22() {
-        let config = JpegCodecConfig::new(
-            Quality::max(),
-            ColorConfig::try_new_rgb_to_ycbcr(2, 2).unwrap(),
-        );
-        check_config_roundtrip(config, 0.2);
-    }
-
-    #[test]
-    fn test_ycbcr_subsampled_41() {
-        let config = JpegCodecConfig::new(
-            Quality::max(),
-            ColorConfig::try_new_rgb_to_ycbcr(4, 1).unwrap(),
-        );
-        check_config_roundtrip(config, 0.3);
-    }
-
-    #[test]
-    fn test_rgb_low_qual() {
-        let config = JpegCodecConfig::new(Quality::try_from(50).unwrap(), ColorConfig::Rgb);
-        check_config_roundtrip(config, 0.3);
-    }
-
-    #[test]
-    fn test_grayscale() {
-        let config = JpegCodecConfig::new(Quality::max(), ColorConfig::Grayscale);
-        let epsilon = 0.1;
-
-        let codec = TurboCodec::try_from(config).unwrap();
-        let (shape, [r, _g, _b]) = RAW_IMG_GRAYSCALES.clone();
-        check_codec_roundtrip(codec, epsilon, &r, shape);
-    }
+    crate::test_utils::impl_roundtrip_test!(TurboCodec);
 }

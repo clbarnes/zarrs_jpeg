@@ -6,15 +6,11 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  build-toolchain:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: ["stable", "1.91", "beta", "nightly"]
-        features:
-          - "--no-default-features"
-          - '--features ""'
-          - "--all-features"
+        rust-version: ["1.95", stable, beta, nightly]
     runs-on: ubuntu-latest
     steps:
 
@@ -22,7 +18,26 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: ${{ matrix.rust-version }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --all-features
+
+  build-features:
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "--no-default-features"
+          - "--all-features"
+          - "--features ''"
+          - '--no-default-features --features "zarrs backend-turbojpeg"'
+          - '--no-default-features --features "zarrs backend-rust"'
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: ilammy/setup-nasm@v1
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build ${{ matrix.features }}
 

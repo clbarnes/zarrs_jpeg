@@ -9,12 +9,24 @@ pub enum Error {
     /// General error with a message.
     #[error("{0}")]
     General(String),
+    /// Specific operation is not supported, e.g. by a NullEncoder/ NullDecoder.
+    #[error("Unsupported operation: {0}")]
+    Unsupported(&'static str),
     #[error("{0}")]
     /// Wrapped error from another source.
     Wrapped(#[from] Box<dyn std::error::Error + Send + Sync>),
     /// Error from the TurboJPEG library.
-    #[error("TurboJPEG error: {0}")]
-    Turbo(#[from] turbojpeg::Error),
+    #[error("turbojpeg error: {0}")]
+    #[cfg(feature = "backend-turbojpeg")]
+    Turbojpeg(#[from] turbojpeg::Error),
+    /// Error from the zune-jpeg library.
+    #[cfg(feature = "backend-decode-zune-jpeg")]
+    #[error("zune-jpeg decode error: {0}")]
+    ZuneJpegDecode(#[from] zune_jpeg::errors::DecodeErrors),
+    /// Error from the mozjpeg-rs library.
+    #[error("mozjpeg-rs encode error: {0}")]
+    #[cfg(feature = "backend-encode-mozjpeg-rs")]
+    MozJpegRs(#[from] mozjpeg_rs::Error),
     /// Error indicating that the shape of the JPEG image was not as expected.
     #[error("Expected {expected:?}, got {got:?}")]
     UnexpectedShape {
@@ -23,6 +35,12 @@ pub enum Error {
         /// The actual shape of the JPEG image.
         got: JpegShape,
     },
+}
+
+impl From<std::convert::Infallible> for Error {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
 }
 
 impl Error {

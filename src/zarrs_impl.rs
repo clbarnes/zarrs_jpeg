@@ -2,7 +2,7 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use crate::{JpegCodec, JpegCodecConfig};
 use crate::{
-    codec::{JpegCodecTrait, JpegDecoderTrait, JpegEncoderTrait},
+    codec::{HasJpegCodecConfig, JpegDecoderTrait, JpegEncoderTrait},
     types::JpegShape,
 };
 use zarrs::{
@@ -29,12 +29,13 @@ impl CodecTraitsV3 for JpegCodec {
         Self: Sized,
     {
         let configuration: JpegCodecConfig = metadata.to_typed_configuration()?;
-        let codec = Arc::new(JpegCodec::try_from(configuration).map_err(|e| {
+        let inner = Self::try_from(configuration).map_err(|e| {
             zarrs::plugin::PluginCreateError::ConfigurationInvalid(
                 PluginConfigurationInvalidError::new(format!("Could not build JPEG codec: {e}")),
             )
-        })?);
-        Ok(Codec::ArrayToBytes(codec))
+        })?;
+        let arced = Arc::new(inner);
+        Ok(Codec::ArrayToBytes(arced))
     }
 }
 
@@ -51,7 +52,7 @@ impl CodecTraits for JpegCodec {
         if version != zarrs::plugin::ZarrVersion::V3 {
             return None;
         }
-        let val = serde_json::to_value(self.config)
+        let val = serde_json::to_value(self.config())
             .expect("jpeg codec configuration should be serializable");
         let serde_json::Value::Object(map) = val else {
             unreachable!("jpeg codec configuration should serialize to a JSON object");
@@ -100,10 +101,9 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         _fill_value: &FillValue,
     ) -> Result<BytesRepresentation, CodecError> {
         check_dtype(data_type)?;
-        let im_shape = get_shape(shape, self.codec.decoded_components())?;
+        let im_shape = get_shape(shape, self.decoded_components())?;
         log_bad_chunk_shape(shape, self.mcu_shape());
-        self.codec
-            .max_encoded_size(im_shape)
+        self.max_encoded_size(im_shape)
             .map(|s| BytesRepresentation::BoundedSize(s as u64))
             .map_err(|e| CodecError::Other(e.to_string()))
     }
@@ -121,7 +121,7 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         _options: &CodecOptions,
     ) -> Result<ArrayBytesRaw<'a>, CodecError> {
         check_dtype(data_type)?;
-        let im_shape = get_shape(shape, self.codec.decoded_components())?;
+        let im_shape = get_shape(shape, self.decoded_components())?;
         log_bad_chunk_shape(shape, self.mcu_shape());
         let b = get_bytes(&bytes)?;
         let out_b = JpegEncoderTrait::encode(self, b, im_shape)
@@ -142,7 +142,7 @@ impl ArrayToBytesCodecTraits for JpegCodec {
         _options: &CodecOptions,
     ) -> Result<ArrayBytes<'a>, CodecError> {
         check_dtype(data_type)?;
-        let sh = get_shape(shape, self.codec.decoded_components())?;
+        let sh = get_shape(shape, self.decoded_components())?;
         let out_b = self
             .decode_checked(bytes.as_ref(), sh)
             .map_err(|e| CodecError::Other(e.to_string()))?;

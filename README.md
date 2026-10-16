@@ -47,17 +47,33 @@ The provided JpegCodec has an `mcu_shape` method; the first two dimensions of yo
 
 ## Crate features
 
-### `zarrs`
+### `zarrs` (default)
 
 Allows this crate to be used with the [`zarrs`](https://zarrs.dev) ecosystem.
 
-## Dependencies
+### `backend-turbojpeg` (default)
 
-This crate uses bindings to libjpeg-turbo, a C dependency.
+Enables encoding and decoding using bindings to libjpeg-turbo, a C dependency.
 The library is built and statically linked;
-you will need CMake, a C compiler, and NASM (or possibly YASM) to build this crate.
+you will need CMake, a C compiler, and NASM (or possible YASM) to build with this feature.
 
-Alternative backends may be added in future.
+### `backend-encode-mozjpeg-rs`
+
+Enables encoding using the [mozjpeg-rs](https://crates.io/crates/mozjpeg-rs) crate,
+which is a rust implementation of mozjpeg-like optimisations with no relationship to Mozilla (to my knowledge)
+and makes heavy use of LLMs in the development and release process.
+
+Does not yet support direct RGB->RGB encoding, [but will soon](https://github.com/imazen/mozjpeg-rs/pull/11).
+Does not yet support accurate estimates of maximum encoded buffer size, [but may at some point](https://github.com/imazen/mozjpeg-rs/issues/12).
+
+### `backend-decode-zune-jpeg`
+
+Enables decoding using the [zune-jpeg](https://crates.io/crates/zune-jpeg) crate,
+which is a rust implementation aiming for (and close to) libjpeg-turbo speeds.
+
+### `backend-rust`
+
+Alias for `backend-encode-mozjpeg-rs` and `backend-decode-zune-jpeg`.
 
 ## Examples
 
