@@ -5,7 +5,9 @@ mod config;
 #[cfg(feature = "zarrs")]
 mod zarrs_impl;
 
-pub use config::{ColorConfig, JpegCodecConfig, Quality, SamplingRatio, SamplingRatios};
+pub use config::{
+    ColorConfig, ColorSpace, JpegCodecConfig, Quality, SamplingRatio, SamplingRatios,
+};
 mod errors;
 mod types;
 pub use errors::{Error, Result};

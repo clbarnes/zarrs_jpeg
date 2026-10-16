@@ -37,6 +37,7 @@ backend-encode-mozjpeg-rs = ["dep:mozjpeg-rs"]
 backend-rust = ["backend-decode-zune-jpeg", "backend-encode-mozjpeg-rs"]
 
 [dev-dependencies]
+criterion = "0.8.2"
 paste = "1.0.15"
 png = "0.18.1"
 serde_json = "1.0.150"
@@ -51,3 +52,13 @@ opt-level = 3
 [[example]]
 name = "astronaut"
 required-features = ["zarrs", "backend-turbojpeg"]
+
+[[bench]]
+name = "encode"
+harness = false
+required-features = ["backend-turbojpeg", "backend-encode-mozjpeg-rs"]
+
+[[bench]]
+name = "decode"
+harness = false
+required-features = ["backend-turbojpeg", "backend-decode-zune-jpeg"]

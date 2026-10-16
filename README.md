@@ -57,6 +57,8 @@ Enables encoding and decoding using bindings to libjpeg-turbo, a C dependency.
 The library is built and statically linked;
 you will need CMake, a C compiler, and NASM (or possible YASM) to build with this feature.
 
+This is the best-performing backend for both encoding and decoding.
+
 ### `backend-encode-mozjpeg-rs`
 
 Enables encoding using the [mozjpeg-rs](https://crates.io/crates/mozjpeg-rs) crate,
