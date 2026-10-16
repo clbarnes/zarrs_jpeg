@@ -6,7 +6,7 @@ repository = "https://github.com/clbarnes/zarrs_jpeg"
 license = "MIT"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.91"
+rust-version = "1.95"
 keywords = ["zarr", "jpeg", "image", "chunked"]
 categories = ["multimedia::images", "multimedia::encoding", "parser-implementations"]
 
