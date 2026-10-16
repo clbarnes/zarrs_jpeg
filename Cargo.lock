@@ -1547,6 +1547,7 @@ dependencies = [
  "inventory",
  "log",
  "mozjpeg-rs",
+ "paste",
  "png",
  "serde",
  "serde_json",

@@ -126,6 +126,12 @@ pub struct SamplingRatios {
     pub vertical: SamplingRatio,
 }
 
+impl std::fmt::Display for SamplingRatios {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{}", self.horizontal.value(), self.vertical.value())
+    }
+}
+
 impl SamplingRatios {
     /// Create a new `SamplingRatios` with the given horizontal and vertical ratios.
     pub fn new(horizontal: SamplingRatio, vertical: SamplingRatio) -> Self {
@@ -162,7 +168,7 @@ impl SamplingRatios {
     ///   - b=0 means "use a's samples", i.e. 2:1 vertical subsampling
     ///   - b=a means "use the same subsampling scheme as the first row", i.e. no verticla subsampling
     ///   - but maybe it doesn't in the case of 4:4:1, which is 4:1 vertical downsampling and no horizontal downsampling
-    pub fn as_jab_triple(&self) -> Option<(u8, u8, u8)> {
+    pub fn as_jab(&self) -> Option<(u8, u8, u8)> {
         match (self.horizontal.value(), self.vertical.value()) {
             (1, 1) => Some((4, 4, 4)),
             (2, 1) => Some((4, 2, 2)),

@@ -30,6 +30,7 @@
       "name": "jpeg",
       "configuration": {
         "quality": 95,
+        "encoded_color_space": "grayscale",
         "decoded_color_space": "grayscale",
         "subsampling": [
           [

@@ -23,7 +23,7 @@ impl TryFrom<SamplingRatios> for mozjpeg_rs::Subsampling {
     type Error = crate::Error;
 
     fn try_from(value: SamplingRatios) -> Result<Self, Self::Error> {
-        let jab = value.as_jab_triple().ok_or_else(|| {
+        let jab = value.as_jab().ok_or_else(|| {
             crate::Error::general(format!("unsupported subsampling ratio {value:?}"))
         })?;
         let out = match jab {

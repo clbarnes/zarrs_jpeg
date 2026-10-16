@@ -29,12 +29,13 @@ impl CodecTraitsV3 for JpegCodec {
         Self: Sized,
     {
         let configuration: JpegCodecConfig = metadata.to_typed_configuration()?;
-        let codec = Arc::new(Self::try_from(configuration).map_err(|e| {
+        let inner = Self::try_from(configuration).map_err(|e| {
             zarrs::plugin::PluginCreateError::ConfigurationInvalid(
                 PluginConfigurationInvalidError::new(format!("Could not build JPEG codec: {e}")),
             )
-        })?);
-        Ok(Codec::ArrayToBytes(codec))
+        })?;
+        let arced = Arc::new(inner);
+        Ok(Codec::ArrayToBytes(arced))
     }
 }
 

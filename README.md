@@ -47,11 +47,11 @@ The provided JpegCodec has an `mcu_shape` method; the first two dimensions of yo
 
 ## Crate features
 
-### `zarrs`
+### `zarrs` (default)
 
 Allows this crate to be used with the [`zarrs`](https://zarrs.dev) ecosystem.
 
-### `backend-turbojpeg`
+### `backend-turbojpeg` (default)
 
 Enables encoding and decoding using bindings to libjpeg-turbo, a C dependency.
 The library is built and statically linked;

@@ -37,6 +37,12 @@ pub enum Error {
     },
 }
 
+impl From<std::convert::Infallible> for Error {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
+}
+
 impl Error {
     /// Create a general error from a message.
     pub fn general(msg: impl Into<String>) -> Self {

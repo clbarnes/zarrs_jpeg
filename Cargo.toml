@@ -37,6 +37,7 @@ backend-encode-mozjpeg-rs = ["dep:mozjpeg-rs"]
 backend-rust = ["backend-decode-zune-jpeg", "backend-encode-mozjpeg-rs"]
 
 [dev-dependencies]
+paste = "1.0.15"
 png = "0.18.1"
 serde_json = "1.0.150"
 template_cke = "0.1.0"
@@ -46,3 +47,7 @@ zarrs = { version = "0.23.13", default-features = false, features = [
 
 [profile.dev.package.zune-jpeg]
 opt-level = 3
+
+[[example]]
+name = "astronaut"
+required-features = ["zarrs", "backend-turbojpeg"]
