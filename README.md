@@ -89,3 +89,8 @@ This produces:
 - `astronaut_jpeg_channels.zarr`: a JPEG-compressed Zarr array with XY chunks and 1 chunk for each channel - each chunk should be a valid grayscale JFIF
 
 This example uses the [template chunk key encoding extension](https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/template) so that every chunk has the expected `.jpeg` suffix.
+
+## Divergences from the spec
+
+At time of writing, the spec requires subsampling to be given even when it's trivial.
+This codec always writes the subsampling (even if trivial) but infers trivial subsampling if omitted.

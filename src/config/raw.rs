@@ -39,7 +39,8 @@ pub(super) struct ColorConfigRaw {
     encoded_color_space: ColorSpace,
     #[serde(skip_serializing_if = "Option::is_none")]
     decoded_color_space: Option<ColorSpace>,
-    subsampling: Vec<SamplingRatios>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    subsampling: Option<Vec<SamplingRatios>>,
 }
 
 impl TryFrom<ColorConfigRaw> for ColorConfig {
@@ -61,27 +62,29 @@ impl TryFrom<ColorConfigRaw> for ColorConfig {
             ));
         }
 
-        if enc_components != value.subsampling.len() {
-            return Err(Self::Error::general(
-                "Subsampling must have the same number of components as the encoded color space",
-            ));
-        }
-
         const TRIVIAL_SUBSAMPLING: SamplingRatios = SamplingRatios {
             horizontal: SamplingRatio(1),
             vertical: SamplingRatio(1),
         };
 
-        let mut subs = value.subsampling;
-        while subs.len() > 1 {
-            let sub = subs.pop().expect("already checked length");
-            if sub != TRIVIAL_SUBSAMPLING {
+        let subsampling = if let Some(mut subs) = value.subsampling {
+            if enc_components != subs.len() {
                 return Err(Self::Error::general(
-                    "Only the first component can have non-trivial subsampling",
+                    "Subsampling must have the same number of components as the encoded color space",
                 ));
             }
-        }
-        let subsampling = subs.pop().expect("already checked length");
+            while subs.len() > 1 {
+                let sub = subs.pop().expect("already checked length");
+                if sub != TRIVIAL_SUBSAMPLING {
+                    return Err(Self::Error::general(
+                        "Only the first component can have non-trivial subsampling",
+                    ));
+                }
+            }
+            subs.pop().expect("already checked length")
+        } else {
+            SamplingRatios::default()
+        };
 
         match (dec_cspace, enc_cspace) {
             (ColorSpace::Grayscale, ColorSpace::Grayscale) => {
@@ -113,30 +116,30 @@ impl From<ColorConfig> for ColorConfigRaw {
             ColorConfig::Grayscale => ColorConfigRaw {
                 encoded_color_space: ColorSpace::Grayscale,
                 decoded_color_space: Some(ColorSpace::Grayscale),
-                subsampling: vec![SamplingRatios::default()],
+                subsampling: Some(vec![SamplingRatios::default()]),
             },
             ColorConfig::Rgb => ColorConfigRaw {
                 encoded_color_space: ColorSpace::Rgb,
                 decoded_color_space: Some(ColorSpace::Rgb),
-                subsampling: vec![SamplingRatios::default(); 3],
+                subsampling: Some(vec![SamplingRatios::default(); 3]),
             },
             ColorConfig::YCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::YCbCr),
-                subsampling: vec![
+                subsampling: Some(vec![
                     subsampling,
                     SamplingRatios::default(),
                     SamplingRatios::default(),
-                ],
+                ]),
             },
             ColorConfig::RgbToYCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::Rgb),
-                subsampling: vec![
+                subsampling: Some(vec![
                     subsampling,
                     SamplingRatios::default(),
                     SamplingRatios::default(),
-                ],
+                ]),
             },
         }
     }
