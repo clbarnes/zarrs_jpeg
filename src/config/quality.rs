@@ -48,8 +48,8 @@ impl TryFrom<u8> for Quality {
     type Error = crate::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > 100 {
-            return Err(crate::Error::general("Quality must be between 0 and 100"));
+        if !(1..=100).contains(&value) {
+            return Err(crate::Error::general("Quality must be in [1, 100]"));
         }
         Ok(Quality(value))
     }
@@ -58,5 +58,30 @@ impl TryFrom<u8> for Quality {
 impl From<Quality> for u8 {
     fn from(value: Quality) -> Self {
         value.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_quality_try_from() {
+        assert!(Quality::try_from(0).is_err());
+        assert!(Quality::try_from(101).is_err());
+        assert_eq!(Quality::try_from(50).unwrap().value(), 50);
+        assert_eq!(Quality::try_from(100).unwrap().value(), 100);
+    }
+
+    #[test]
+    fn test_quality_default() {
+        let q = Quality::default();
+        assert_eq!(q.value(), crate::DEFAULT_QUALITY);
+    }
+
+    #[test]
+    fn test_quality_max() {
+        let q = Quality::max();
+        assert_eq!(q.value(), 100);
     }
 }
