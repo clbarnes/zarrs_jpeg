@@ -173,6 +173,16 @@ mod tests {
                 json!({"decoded_color_space": "grayscale", "encoded_color_space": "grayscale", "subsampling": [[1, 1]]}),
                 ColorConfig::Grayscale,
             ),
+            (
+                json!({"decoded_color_space": "grayscale", "encoded_color_space": "grayscale"}),
+                ColorConfig::Grayscale,
+            ),
+            (
+                json!({"decoded_color_space": "rgb", "encoded_color_space": "ycbcr"}),
+                ColorConfig::RgbToYCbCr {
+                    subsampling: SamplingRatios::try_new(1, 1).unwrap(),
+                },
+            ),
         ] {
             let _raw: ColorConfigRaw =
                 serde_json::from_value(jso.clone()).expect("should deser raw type");
