@@ -2,7 +2,7 @@
 
 > WARNING: The `jpeg` codec is a work in progress and likely to change; this codec should not be used to write data in production.
 
-The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/pull/66) codec for Zarr.
+The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/tree/main/codecs/jpeg) codec for Zarr.
 
 While originally written for use with [`zarrs`](https://zarrs.dev) (and still supporting it with the default `zarrs` feature), this can be wrapped for use with other zarr v3 implementations.
 
@@ -89,3 +89,9 @@ This produces:
 - `astronaut_jpeg_channels.zarr`: a JPEG-compressed Zarr array with XY chunks and 1 chunk for each channel - each chunk should be a valid grayscale JFIF
 
 This example uses the [template chunk key encoding extension](https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/template) so that every chunk has the expected `.jpeg` suffix.
+
+## Divergence from the spec
+
+The spec requires `"subsampling"` to be present when `"encoded_color_space" = "ycbcr"`.
+This implementation infers trivial subsampling (`[[1,1],[1,1],[1,1]]`) if omitted,
+as is the case for `"grayscale"` and `"rgb"`.

@@ -110,36 +110,40 @@ impl TryFrom<ColorConfigRaw> for ColorConfig {
     }
 }
 
+fn default_subsampling_if_trivial(
+    enc_space: ColorSpace,
+    subsampling: SamplingRatios,
+) -> Option<Vec<SamplingRatios>> {
+    if subsampling == SamplingRatios::default() {
+        return None;
+    }
+    let mut v = vec![SamplingRatios::default(); enc_space.components()];
+    v[0] = subsampling;
+    Some(v)
+}
+
 impl From<ColorConfig> for ColorConfigRaw {
     fn from(val: ColorConfig) -> Self {
         match val {
             ColorConfig::Grayscale => ColorConfigRaw {
                 encoded_color_space: ColorSpace::Grayscale,
                 decoded_color_space: Some(ColorSpace::Grayscale),
-                subsampling: Some(vec![SamplingRatios::default()]),
+                subsampling: None,
             },
             ColorConfig::Rgb => ColorConfigRaw {
                 encoded_color_space: ColorSpace::Rgb,
                 decoded_color_space: Some(ColorSpace::Rgb),
-                subsampling: Some(vec![SamplingRatios::default(); 3]),
+                subsampling: None,
             },
             ColorConfig::YCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::YCbCr),
-                subsampling: Some(vec![
-                    subsampling,
-                    SamplingRatios::default(),
-                    SamplingRatios::default(),
-                ]),
+                subsampling: default_subsampling_if_trivial(ColorSpace::YCbCr, subsampling),
             },
             ColorConfig::RgbToYCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::Rgb),
-                subsampling: Some(vec![
-                    subsampling,
-                    SamplingRatios::default(),
-                    SamplingRatios::default(),
-                ]),
+                subsampling: default_subsampling_if_trivial(ColorSpace::YCbCr, subsampling),
             },
         }
     }
