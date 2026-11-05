@@ -110,16 +110,23 @@ impl TryFrom<ColorConfigRaw> for ColorConfig {
     }
 }
 
-fn default_subsampling_if_trivial(
+/// Convert a single subsampling ratio into a vector of subsampling ratios for each component of the encoded color space, where all but the first are trivial.
+fn expand_subsampling(enc_space: ColorSpace, subsampling: SamplingRatios) -> Vec<SamplingRatios> {
+    let mut v = vec![SamplingRatios::default(); enc_space.components()];
+    v[0] = subsampling;
+    v
+}
+
+/// Convert a single subsampling ratio like [expand_subsampling],
+/// but return None if the encoded color space is not YCbCr _and_ the subsampling is trivial.
+fn expand_subsampling_opt(
     enc_space: ColorSpace,
     subsampling: SamplingRatios,
 ) -> Option<Vec<SamplingRatios>> {
-    if subsampling == SamplingRatios::default() {
+    if enc_space != ColorSpace::YCbCr && subsampling == SamplingRatios::default() {
         return None;
     }
-    let mut v = vec![SamplingRatios::default(); enc_space.components()];
-    v[0] = subsampling;
-    Some(v)
+    Some(expand_subsampling(enc_space, subsampling))
 }
 
 impl From<ColorConfig> for ColorConfigRaw {
@@ -138,12 +145,12 @@ impl From<ColorConfig> for ColorConfigRaw {
             ColorConfig::YCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::YCbCr),
-                subsampling: default_subsampling_if_trivial(ColorSpace::YCbCr, subsampling),
+                subsampling: expand_subsampling_opt(ColorSpace::YCbCr, subsampling),
             },
             ColorConfig::RgbToYCbCr { subsampling } => ColorConfigRaw {
                 encoded_color_space: ColorSpace::YCbCr,
                 decoded_color_space: Some(ColorSpace::Rgb),
-                subsampling: default_subsampling_if_trivial(ColorSpace::YCbCr, subsampling),
+                subsampling: expand_subsampling_opt(ColorSpace::YCbCr, subsampling),
             },
         }
     }
