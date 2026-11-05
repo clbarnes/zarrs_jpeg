@@ -6,6 +6,8 @@ The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/tree/main/codecs
 
 While originally written for use with [`zarrs`](https://zarrs.dev) (and still supporting it with the default `zarrs` feature), this can be wrapped for use with other zarr v3 implementations.
 
+Versions prior to 1.0 supported pre-stabilisation versions of the specification and should not be relied on.
+
 ## Usage
 
 The core provided types are `JpegCodecConfig`, which implements `serde::{Serialize, Deserialize}` for the representation used in the `"configuration"` object of the codec, i.e.
