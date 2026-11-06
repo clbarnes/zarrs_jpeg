@@ -1719,7 +1719,7 @@ dependencies = [
 
 [[package]]
 name = "zarrs_jpeg"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "criterion",
  "inventory",
