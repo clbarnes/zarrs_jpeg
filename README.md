@@ -1,7 +1,5 @@
 # zarrs_jpeg
 
-> WARNING: The `jpeg` codec is a work in progress and likely to change; this codec should not be used to write data in production.
-
 The [`jpeg`](https://github.com/zarr-developers/zarr-extensions/tree/main/codecs/jpeg) codec for Zarr.
 
 While originally written for use with [`zarrs`](https://zarrs.dev) (and still supporting it with the default `zarrs` feature), this can be wrapped for use with other zarr v3 implementations.
@@ -97,3 +95,4 @@ This example uses the [template chunk key encoding extension](https://github.com
 The spec requires `"subsampling"` to be present when `"encoded_color_space" = "ycbcr"`.
 This implementation infers trivial subsampling (`[[1,1],[1,1],[1,1]]`) if omitted,
 as is the case for `"grayscale"` and `"rgb"`.
+`"subsampling"` will be explicitly written per the spec.

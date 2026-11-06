@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Document that the spec is stabilised
+
 ## 1.0.1 - 2026-11-05
 
 ### Fixed
